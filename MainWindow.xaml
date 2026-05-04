@@ -1,0 +1,16 @@
+﻿<Window x:Class="full_AI_tovch.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="full_AI_tovch" 
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        Topmost="False"
+        ShowInTaskbar="False"
+        WindowState="Normal"
+        Focusable="False"
+        ShowActivated="False"
+        Loaded="Window_Loaded"
+        MouseLeftButtonDown="Window_MouseLeftButtonDown">
+    <Canvas x:Name="MainCanvas" Background="Transparent" />
+</Window>

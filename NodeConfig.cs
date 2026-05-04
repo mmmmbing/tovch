@@ -1,0 +1,49 @@
+﻿using full_AI_tovch;
+using System.Collections.Generic;
+using System.Windows;
+using System.Windows.Media;
+
+namespace full_AI_tovch
+{
+    public static class NodeConfig
+    {
+        // 全局外观默认值
+        public static Brush GlobalBackground { get; set; } = Brushes.LightBlue;
+        public static Brush GlobalForeground { get; set; } = Brushes.Black;
+        public static FontFamily GlobalFontFamily { get; set; } = new FontFamily("Segoe UI");
+        public static double GlobalFontSize { get; set; } = 12;
+
+        // 获取指定节点
+        public static MenuItemNode GetNode(List<MenuItemNode> rootNodes, string path)
+        {
+            return NodeTree.FindNodeByPath(rootNodes, path);
+        }
+
+        // 设置节点文本（若rootNodes为null，后续操作将忽略，实际无意义）
+        public static void SetNodeText(List<MenuItemNode> rootNodes, string path, string text)
+        {
+            var node = GetNode(rootNodes, path);
+            if (node != null)
+            {
+                node.Text = text;
+                if (node.UiButton != null)
+                    node.UiButton.Content = text;
+            }
+        }
+
+        // 读取节点文本
+        public static string GetNodeText(List<MenuItemNode> rootNodes, string path)
+        {
+            var node = GetNode(rootNodes, path);
+            return node?.Text;
+        }
+
+        // 若传入null，则以下方法为设置全局属性（已通过静态属性暴露，也可直接修改）
+        // 为符合“传入空节点代表全局控制”，提供便捷方法：
+        public static void SetGlobalBackground(Brush background)
+        {
+            GlobalBackground = background;
+        }
+        // 更多全局方法可根据需要添加
+    }
+}
