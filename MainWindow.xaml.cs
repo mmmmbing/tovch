@@ -2,17 +2,48 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Drawing;
+//using System.Drawing;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Documents;
+
+//using System.Windows.Forms;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
+using System.Xml.Linq;
 
 namespace full_AI_tovch
 {
+    public class MousePositionHelper
+    {
+        [StructLayout(LayoutKind.Sequential)]
+        public struct POINT
+        {
+            public int X;
+            public int Y;
+
+            public static implicit operator Point(POINT point)
+            {
+                return new Point(point.X, point.Y);
+            }
+        }
+
+        [DllImport("user32.dll")]
+        public static extern bool GetCursorPos(out POINT lpPoint);
+
+        public static Point GetCursorPosition()
+        {
+            POINT point;
+            if (GetCursorPos(out point))
+            {
+                return point;
+            }
+            throw new InvalidOperationException("无法获取鼠标位置");
+        }
+    }
     public partial class MainWindow : Window
     {
         // 整个菜单树的根节点列表（永驻）
@@ -32,8 +63,11 @@ namespace full_AI_tovch
 
         public MainWindow()
         {
+
             InitializeComponent();
 
+            this.ShowInTaskbar = false;
+            //this.FormBorderStyle = FormBorderStyle.None;
             // 防止窗口被激活抢焦点
             SourceInitialized += (s, e) =>
             {
@@ -41,6 +75,7 @@ namespace full_AI_tovch
                 IntPtr handle = helper.Handle;
                 MenuActivation.Initialize(handle);
                 // 不激活窗口
+
                 int exStyle = NativeMethods.GetWindowLong(handle, NativeMethods.GWL_EXSTYLE);
                 exStyle |= NativeMethods.WS_EX_NOACTIVATE;
                 NativeMethods.SetWindowLong(handle, NativeMethods.GWL_EXSTYLE, exStyle);
@@ -50,7 +85,6 @@ namespace full_AI_tovch
                 MenuActivation.Initialize(handle);
                 MenuActivation.ShowRequested += ShowMenu;
                 MenuActivation.HideRequested += HideMenu;
-                System.Windows.MessageBox.Show("事件绑定完成");
 
                 // 注册唤出热键（始终有效）
                 MenuActivation.RegisterWakeUpHotkey();
@@ -62,10 +96,10 @@ namespace full_AI_tovch
             // 设置窗口覆盖全工作区（非最大化）
             Loaded += (s, e) =>
             {
-                Left = SystemParameters.WorkArea.Left;
-                //Top = SystemParameters.WorkArea.Top;
-                //Width = SystemParameters.WorkArea.Width;
-                //Height = SystemParameters.WorkArea.Height;
+                Left = 0;
+                Top = 0;
+                Width = SystemParameters.PrimaryScreenWidth;
+                Height = SystemParameters.PrimaryScreenHeight;
             };
 
 
@@ -79,22 +113,16 @@ namespace full_AI_tovch
         {
             try
             {
-                MessageBox.Show("ShowMenu 开始执行");
-                this.Background = new SolidColorBrush(System.Windows.Media.Color.FromArgb(80, 255, 0, 0));
-
-                if (Visibility == Visibility.Visible)
-                {
-                    //MessageBox.Show("窗口已处于可见状态，直接返回");
-                    //return;
-                }
+                //this.Background = new SolidColorBrush(System.Windows.Media.Color.FromArgb(80, 255, 0, 0));
 
                 Visibility = Visibility.Visible;
-                Topmost = true;
-                MessageBox.Show("窗口已设为 Visible，准备注册隐藏热键");
+                
+                //Topmost = true;
+                
                 MenuActivation.RegisterHideHotkey();
-                MessageBox.Show("隐藏热键注册完毕，准备调用 SnapToMouse");
+                
                 SnapToMouse();
-                MessageBox.Show("SnapToMouse 调用完成");
+                
             }
             catch (Exception ex)
             {
@@ -125,15 +153,23 @@ namespace full_AI_tovch
                 MessageBox.Show("rootNodes 为空列表 ！");
                 return;
             }
-            MessageBox.Show($"rootNodes 共 {rootNodes.Count} 个节点");
+
 
             // 2. 取得鼠标位置
-            var mousePos = System.Windows.Forms.Cursor.Position;
+            Point mousePos = MousePositionHelper.GetCursorPosition();
+            //var mousePos = System.Windows.Forms.Cursor.Position;
+            //Point mousePos = Mouse.GetPosition(this);
             double centerX = mousePos.X;
             double centerY = mousePos.Y;
+            centerX = centerX - 237;
+            centerY = centerY + 27;
 
+
+
+            //MessageBox.Show("鼠标坐标" + centerX.ToString() +","+centerX.ToString());
             // 3. 清除画布
             ClearCanvas();
+
 
             // 4. 布局节点并创建按钮
             LayoutNodesAroundPoint(rootNodes, centerX, centerY);
@@ -145,6 +181,7 @@ namespace full_AI_tovch
                 // 创建按钮（使用极端醒目的方式）
                 Button btn = new Button
                 {
+
                     Width = node.ButtonSize,
                     Height = node.ButtonSize,
                     Content = node.Text,
@@ -157,31 +194,32 @@ namespace full_AI_tovch
                     Foreground = new SolidColorBrush(Colors.Black),
                     FontSize = 14,
                     FontWeight = FontWeights.Bold,
-                    Template = null                                  // 用默认按钮样式（方角）
+                    Template = CreateCircleButtonTemplate(50)                              // 用默认按钮样式（方角）
                 };
-
+                //MessageBox.Show(node.CenterX.ToString() + " "+ node.CenterY.ToString() );
                 // 设置位置（已经考虑 ButtonSize 偏移）
-                Canvas.SetLeft(btn, node.CenterX - node.ButtonSize / 2);
-                Canvas.SetTop(btn, node.CenterY - node.ButtonSize / 2);
-
-                // 调试输出坐标
-                System.Diagnostics.Debug.WriteLine($"按钮{i}: 文字={node.Text}, 中心=({node.CenterX},{node.CenterY}), 左上=({node.CenterX - node.ButtonSize / 2},{node.CenterY - node.ButtonSize / 2})");
-
+                Canvas.SetLeft(btn,node.CenterX -node.ButtonSize);
+                Canvas.SetTop(btn, node.CenterY -node.ButtonSize);
+                //MessageBox.Show((node.CenterX - node.ButtonSize / 2).ToString() + " " + (node.CenterY - node.ButtonSize / 2).ToString());
+                //调试——输出坐标
+                double left = Canvas.GetLeft(btn);
+                double top = Canvas.GetTop(btn);
                 // 添加到画布
                 MainCanvas.Children.Add(btn);
-
-                // 绑定节点
+                //绑定节点
                 node.UiButton = btn;
 
-                // 临时不播放动画，直接可见
-                // node.PlayShowAnimation();
+                //临时不播放动画，直接可见
+                node.PlayShowAnimation();
             }
 
             // 再弹一下画布上的按钮总数
-            MessageBox.Show($"Canvas 上 Button 数量: {MainCanvas.Children.OfType<Button>().Count()}");
-
             currentLevelNodes = rootNodes;
-            history.Clear();
+
+            //        MessageBox.Show($"Canvas 子元素总数: {MainCanvas.Children.Count}, " +
+            //$"其中 Button 数量: {MainCanvas.Children.OfType<Button>().Count()}");
+
+
         }
 
         private void Window_Loaded(object sender, RoutedEventArgs e)
@@ -399,60 +437,50 @@ namespace full_AI_tovch
                 Height = node.ButtonSize,
                 Content = node.Text,
                 Focusable = false,
-                Cursor = Cursors.Hand
+                Cursor = Cursors.Hand,
+                Opacity = 1,
+                RenderTransform = new ScaleTransform(1, 1),
+                RenderTransformOrigin = new System.Windows.Point(0.5, 0.5),
+                Template = CreateCircleButtonTemplate(node.ButtonSize / 2)   // 直接设置
             };
 
-            // 外观（圆角 = 高度一半 → 正圆）
-            var bg = node.BackgroundOverride ?? NodeConfig.GlobalBackground;
-            var fg = node.ForegroundOverride ?? NodeConfig.GlobalForeground;
-            btn.Background = bg;
-            btn.Foreground = fg;
-            btn.FontFamily = NodeConfig.GlobalFontFamily;
-            btn.FontSize = NodeConfig.GlobalFontSize;
-            btn.BorderThickness = new Thickness(0);
-            btn.Template = CreateCircleButtonTemplate(node.ButtonSize / 2);
-
-            // 放置到 Canvas
+            // 不设置 Background/Foreground，因为模板里写死了
             Canvas.SetLeft(btn, node.CenterX - node.ButtonSize / 2);
             Canvas.SetTop(btn, node.CenterY - node.ButtonSize / 2);
             MainCanvas.Children.Add(btn);
 
-            // 点击事件
-            btn.Click += (s, e) =>
+            // 输出实际尺寸以调试
+            btn.Loaded += (s, e) =>
             {
-                if (node.Children.Count > 0) // 可展开节点：进入子层
-                {
-                    // 布置子节点：以当前节点中心为圆心，子节点的轨道半径为由 node.Children[0].TrackRadius 提供
-                    double childRadius = node.Children[0].TrackRadius; // 假设同层统一
-                    LayoutNodesAroundPoint(node.Children, node.CenterX, node.CenterY);
-                    NavigateToLevel(node.Children);
-                }
-                else // 叶节点：打字
-                {
-                    TextInjection.Send(node.Text);
-                    // 可选：窗口退出或保留
-                }
+                System.Diagnostics.Debug.WriteLine($"按钮加载后 ActualWidth={btn.ActualWidth}, ActualHeight={btn.ActualHeight}");
             };
 
+            System.Diagnostics.Debug.WriteLine($"按钮已添加: {btn.Content}, 子元素总数: {MainCanvas.Children.Count}");
+
             node.UiButton = btn;
+
             return btn;
         }
-
         // 生成圆形按钮模板
         private static ControlTemplate CreateCircleButtonTemplate(double cornerRadius)
         {
             var template = new ControlTemplate(typeof(Button));
+
+            // 极简：一个带背景和文字的圆角 Border
             var border = new FrameworkElementFactory(typeof(Border));
             border.SetValue(Border.CornerRadiusProperty, new CornerRadius(cornerRadius));
-            border.SetValue(Border.BackgroundProperty, new TemplateBindingExtension(Button.BackgroundProperty));
-            border.SetValue(Border.BorderBrushProperty, new TemplateBindingExtension(Button.BorderBrushProperty));
-            border.SetValue(Border.BorderThicknessProperty, new TemplateBindingExtension(Button.BorderThicknessProperty));
+            border.SetValue(Border.BackgroundProperty, Brushes.Orange);        // 硬编码橙色背景
+            border.SetValue(Border.BorderBrushProperty, Brushes.DarkGray);
+            border.SetValue(Border.BorderThicknessProperty, new Thickness(2));
+            border.SetValue(Border.HorizontalAlignmentProperty, HorizontalAlignment.Stretch);
+            border.SetValue(Border.VerticalAlignmentProperty, VerticalAlignment.Stretch);
 
-            var contentPresenter = new FrameworkElementFactory(typeof(ContentPresenter));
-            contentPresenter.SetValue(ContentPresenter.HorizontalAlignmentProperty, HorizontalAlignment.Center);
-            contentPresenter.SetValue(ContentPresenter.VerticalAlignmentProperty, VerticalAlignment.Center);
-            border.AppendChild(contentPresenter);
+            var content = new FrameworkElementFactory(typeof(ContentPresenter));
+            content.SetValue(ContentPresenter.HorizontalAlignmentProperty, HorizontalAlignment.Center);
+            content.SetValue(ContentPresenter.VerticalAlignmentProperty, VerticalAlignment.Center);
+            content.SetValue(ContentPresenter.ContentProperty, new TemplateBindingExtension(Button.ContentProperty));
 
+            border.AppendChild(content);
             template.VisualTree = border;
             return template;
         }

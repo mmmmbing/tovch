@@ -57,7 +57,6 @@ namespace full_AI_tovch
             }
             else
             {
-                //MessageBox.Show("注册成功！");
             }
         }
         public static void RegisterHideHotkey()
@@ -95,7 +94,6 @@ namespace full_AI_tovch
             if (msg == WM_HOTKEY)
             {
                 int hotkeyId = wParam.ToInt32();
-                System.Windows.MessageBox.Show($"WM_HOTKEY 收到，ID: {hotkeyId}");
 
                 if (hotkeyId == wakeUpHotkeyId)
                 {

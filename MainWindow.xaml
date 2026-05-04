@@ -3,14 +3,14 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="full_AI_tovch" 
         WindowStyle="None"
+        Opacity="0.5"
         AllowsTransparency="True"
         Background="Transparent"
-        Topmost="False"
+        Topmost="True"
         ShowInTaskbar="False"
         WindowState="Normal"
-        Focusable="False"
         ShowActivated="False"
         Loaded="Window_Loaded"
-        MouseLeftButtonDown="Window_MouseLeftButtonDown">
-    <Canvas x:Name="MainCanvas" Background="Transparent" />
+        MouseLeftButtonDown="Window_MouseLeftButtonDown" Height="500" Width="500">
+    <Canvas x:Name="MainCanvas" Background="Transparent" Margin="250,0,0,-31" />
 </Window>
