@@ -69,6 +69,35 @@ namespace full_AI_tovch
             this.ShowInTaskbar = false;
             //this.FormBorderStyle = FormBorderStyle.None;
             // 防止窗口被激活抢焦点
+            NodeController.NavigateToChildren = NavigateToLevel;
+            NodeController.NavigateBack = GoBack;
+
+            NodeController.MouseEnterNode = (node) =>
+            {
+                if (node.UiButton != null)
+                {
+                    node.UiButton.Background = Brushes.Orange;
+                    node.UiButton.RenderTransform = new ScaleTransform(1.2, 1.2);
+                    node.UiButton.RenderTransformOrigin = new Point(0.5, 0.5);
+                }
+            };
+
+            NodeController.MouseLeaveNode = (node) =>
+            {
+                if (node.UiButton != null)
+                {
+                    node.UiButton.Background = Brushes.LightBlue;
+                    node.UiButton.RenderTransform = new ScaleTransform(1.0, 1.0);
+                }
+            };
+
+            NodeController.PrepareChildrenLayout = (parentNode) =>
+            {
+                LayoutNodesAroundPoint(parentNode.Children, parentNode.CenterX, parentNode.CenterY);
+            };
+
+
+            Loaded += Window_Loaded;
             SourceInitialized += (s, e) =>
             {
                 var helper = new WindowInteropHelper(this);
@@ -102,13 +131,16 @@ namespace full_AI_tovch
                 Height = SystemParameters.PrimaryScreenHeight;
             };
 
+            //节点控制区
+
+
 
             Closing += (s, e) => MenuActivation.Cleanup();
 
             InitializeRightButtonHandling();
 
         }
-
+      
         private void ShowMenu()
         {
             try
@@ -196,6 +228,9 @@ namespace full_AI_tovch
                     FontWeight = FontWeights.Bold,
                     Template = CreateCircleButtonTemplate(50)                              // 用默认按钮样式（方角）
                 };
+
+               
+
                 //MessageBox.Show(node.CenterX.ToString() + " "+ node.CenterY.ToString() );
                 // 设置位置（已经考虑 ButtonSize 偏移）
                 Canvas.SetLeft(btn,node.CenterX -node.ButtonSize);
@@ -207,12 +242,16 @@ namespace full_AI_tovch
                 // 添加到画布
                 MainCanvas.Children.Add(btn);
                 //绑定节点
+                btn.PreviewMouseRightButtonDown += OnButtonRightButtonDown;
+                btn.PreviewMouseRightButtonUp += OnButtonRightButtonUp;
+                btn.MouseLeave += OnButtonMouseLeave;
                 node.UiButton = btn;
 
                 //临时不播放动画，直接可见
                 node.PlayShowAnimation();
             }
 
+            NodeController.ConfigureAll(rootNodes);
             // 再弹一下画布上的按钮总数
             currentLevelNodes = rootNodes;
 
@@ -230,25 +269,57 @@ namespace full_AI_tovch
                 TrackRadius = 100,
                 ButtonSize = 50,
                 VertexCount = 6,
-                Labels = new List<string> { "你好", "苹果", "香蕉", "橙子", "葡萄", "结束" },
-                ExpandableIndices = new List<int> { 1, 2 },
-                ChildTree = new NodeTreeConfig
+                Labels = new List<string> { "水果", "颜色", "动物", "数字", "动作", "其他" },
+                ExpandableConfigs = new Dictionary<int, NodeTreeConfig>
+    {
+        { 1, new NodeTreeConfig    // 颜色节点展开出 3 个子项
+            {
+                TrackRadius = 60,
+                ButtonSize = 35,
+                VertexCount = 3,
+                Labels = new List<string> { "红", "绿", "蓝" }
+                // 颜色子项不再展开 → 叶子节点
+            }
+        },
+        { 2, new NodeTreeConfig    // 动物节点展开出 4 个子项
+            {
+                TrackRadius = 60,
+                ButtonSize = 35,
+                VertexCount = 4,
+                Labels = new List<string> { "猫", "狗", "鸟", "鱼" }
+            }
+        },
+        { 4, new NodeTreeConfig    // 动作节点展开出 2 个子项，且子项还能继续展开
+            {
+                TrackRadius = 60,
+                ButtonSize = 35,
+                VertexCount = 2,
+                Labels = new List<string> { "跑", "跳" },
+                ExpandableConfigs = new Dictionary<int, NodeTreeConfig>
                 {
-                    TrackRadius = 60,
-                    ButtonSize = 35,
-                    VertexCount = 4,
-                    Labels = new List<string> { "红", "绿", "酸", "甜" },
-                    ExpandableIndices = new List<int> { 0 },
-                    ChildTree = new NodeTreeConfig
-                    {
-                        TrackRadius = 40,
-                        ButtonSize = 25,
-                        VertexCount = 3,
-                        Labels = new List<string> { "深红", "浅红", "粉" }
+                    { 0, new NodeTreeConfig   // “跑”展开
+                        {
+                            TrackRadius = 40,
+                            ButtonSize = 25,
+                            VertexCount = 2,
+                            Labels = new List<string> { "快跑", "慢跑" }
+                        }
                     }
                 }
+            }
+        }
+    }
             };
             rootNodes = NodeTree.BuildTree(config);
+            
+            NodeController.ConfigureAll(rootNodes);
+
+            
+            // 还可立即进行个性定制，例如：
+            NodeController.SetNodeText(rootNodes, "0", "开始");
+            NodeController.SetNodeAnimationOverrides(rootNodes, "1/0", showDuration: 0.5);
+
+            
         }
 
         // 切换到指定层级（播放出现动画，隐藏其他）
@@ -277,8 +348,8 @@ namespace full_AI_tovch
         private void InitializeRightButtonHandling()
         {
             // 为整个窗口添加 Preview 事件以捕获所有 UI 元素上的右键
-            this.PreviewMouseRightButtonDown += OnGlobalRightButtonDown;
-            this.PreviewMouseRightButtonUp += OnGlobalRightButtonUp;
+            //this.PreviewMouseRightButtonDown += OnGlobalRightButtonDown;
+            //this.PreviewMouseRightButtonUp += OnGlobalRightButtonUp;
 
             // 准备定时器
             longPressTimer = new System.Windows.Threading.DispatcherTimer();
@@ -290,7 +361,7 @@ namespace full_AI_tovch
             deleteRepeatTimer.Tick += OnDeleteRepeatTick;
         }
 
-        private void OnGlobalRightButtonDown(object sender, MouseButtonEventArgs e)
+        /*private void OnGlobalRightButtonDown(object sender, MouseButtonEventArgs e)
         {
             if (e.RightButton != MouseButtonState.Pressed) return;
 
@@ -320,8 +391,7 @@ namespace full_AI_tovch
             }
             // 如果已触发长按，则已开始删除，释放时停止（已在上面停止定时器）
             e.Handled = true;
-        }
-
+        }*/
         private void OnLongPressTriggered(object sender, EventArgs e)
         {
             longPressTimer.Stop();
@@ -360,6 +430,8 @@ namespace full_AI_tovch
                     CreateButtonForNode(node);
                     node.PlayShowAnimation();
                 }
+
+                NodeController.ConfigureAll(previousLevel);
             });
             currentLevelNodes = previousLevel;
         }
@@ -395,26 +467,15 @@ namespace full_AI_tovch
 
         // 创建并显示一层节点（立即出现动画）
         private void CreateAndShowLevel(List<MenuItemNode> nodes)
-        {
-            if (nodes == null) return;
-            // 计算布局中心点（屏幕中心）
-            double centerX = SystemParameters.PrimaryScreenWidth / 2;
-            double centerY = SystemParameters.PrimaryScreenHeight / 2;
-
-            // 对于根层级，围绕屏幕中心；子层级则围绕父节点位置计算。
-            // 这里通过节点的 CenterX/CenterY 已存储，若为根节点则需临时计算。
-            if (history.Count == 0) // 顶层
-            {
-                LayoutNodesAroundPoint(nodes, centerX, centerY, 0);
-            }
-            // 否则 nodes 来自父节点的 Children，它们的 CenterX/CenterY 已经在展开时计算（由展开调用者设置）
-
-            foreach (var node in nodes)
-            {
-                CreateButtonForNode(node);
-                node.PlayShowAnimation();
-            }
-        }
+{
+    if (nodes == null) return;
+    foreach (var node in nodes)
+    {
+        CreateButtonForNode(node);
+        node.PlayShowAnimation();
+    }
+            NodeController.ConfigureAll(nodes);
+}
 
         // 在指定中心点周围均匀排布节点，并存储坐标
         private void LayoutNodesAroundPoint(List<MenuItemNode> nodes, double cx, double cy, double startAngle = 0)
@@ -457,6 +518,10 @@ namespace full_AI_tovch
 
             System.Diagnostics.Debug.WriteLine($"按钮已添加: {btn.Content}, 子元素总数: {MainCanvas.Children.Count}");
 
+            btn.PreviewMouseRightButtonDown += OnButtonRightButtonDown;
+            btn.PreviewMouseRightButtonUp += OnButtonRightButtonUp;
+            btn.MouseLeave += OnButtonMouseLeave;
+
             node.UiButton = btn;
 
             return btn;
@@ -466,12 +531,12 @@ namespace full_AI_tovch
         {
             var template = new ControlTemplate(typeof(Button));
 
-            // 极简：一个带背景和文字的圆角 Border
             var border = new FrameworkElementFactory(typeof(Border));
             border.SetValue(Border.CornerRadiusProperty, new CornerRadius(cornerRadius));
-            border.SetValue(Border.BackgroundProperty, Brushes.Orange);        // 硬编码橙色背景
-            border.SetValue(Border.BorderBrushProperty, Brushes.DarkGray);
-            border.SetValue(Border.BorderThicknessProperty, new Thickness(2));
+            // ▼ 关键修改：背景色不写死，而是绑定到按钮的 Background 属性
+            border.SetValue(Border.BackgroundProperty, new TemplateBindingExtension(Button.BackgroundProperty));
+            border.SetValue(Border.BorderBrushProperty, new TemplateBindingExtension(Button.BorderBrushProperty));
+            border.SetValue(Border.BorderThicknessProperty, new TemplateBindingExtension(Button.BorderThicknessProperty));
             border.SetValue(Border.HorizontalAlignmentProperty, HorizontalAlignment.Stretch);
             border.SetValue(Border.VerticalAlignmentProperty, VerticalAlignment.Stretch);
 
@@ -493,6 +558,50 @@ namespace full_AI_tovch
                 GoBack();
             }
         }
+
+
+        private void OnButtonRightButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (e.RightButton != MouseButtonState.Pressed) return;
+            isRightButtonPressed = true;
+            rightButtonDownTime = DateTime.Now;
+
+            longPressTimer.Interval = TimeSpan.FromMilliseconds(InteractionConfig.LongPressThreshold);
+            longPressTimer.Start();
+
+            e.Handled = true; // 阻止冒泡，防止触发窗口的全局右键事件
+        }
+
+        // 按钮上右键释放：短按返回，长按结束删除
+        private void OnButtonRightButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            if (!isRightButtonPressed) return;
+            isRightButtonPressed = false;
+
+            longPressTimer.Stop();
+            bool wasDeleting = deleteRepeatTimer.IsEnabled;
+            deleteRepeatTimer.Stop();
+
+            // 如果没触发过长按（不是删除状态），且右键持续时间很短 → 返回上一级
+            if (!wasDeleting && (DateTime.Now - rightButtonDownTime).TotalMilliseconds < InteractionConfig.LongPressThreshold)
+            {
+                GoBack();
+            }
+
+            e.Handled = true;
+        }
+
+        // 鼠标离开按钮：如果正在长按删除，则停止
+        private void OnButtonMouseLeave(object sender, MouseEventArgs e)
+        {
+            if (deleteRepeatTimer.IsEnabled)
+            {
+                longPressTimer.Stop();
+                deleteRepeatTimer.Stop();
+                isRightButtonPressed = false;
+            }
+        }
+
     }
 
     // 原生窗口样式调用

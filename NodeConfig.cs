@@ -3,6 +3,11 @@ using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Media;
 
+//注，这个文件用来控制节点的通用属性，以及通过路径来修改节点的方法
+
+
+
+
 namespace full_AI_tovch
 {
     public static class NodeConfig

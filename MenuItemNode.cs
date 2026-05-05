@@ -4,7 +4,7 @@ using System.Windows.Media;
 
 namespace full_AI_tovch
 {
-    public class MenuItemNode :Button
+    public class MenuItemNode 
     {
         public string Text { get; set; }
         public List<MenuItemNode> Children { get; set; } = new List<MenuItemNode>();
