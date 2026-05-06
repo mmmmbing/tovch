@@ -10,8 +10,8 @@ namespace full_AI_tovch
 {
     internal static class ModifierKeysConverter
     {
-    
-      
+
+
         public static uint ToWin32(ModifierKeys modifiers)
         {
             uint mod = 0;
@@ -24,6 +24,10 @@ namespace full_AI_tovch
     }
     public static class MenuActivation
     {
+
+
+
+        //一下为注册快捷键唤醒的代码
         private static HwndSource hwndSource;
         private static IntPtr handle;  // 保存窗口句柄
         private static int wakeUpHotkeyId = 9001;
@@ -108,8 +112,33 @@ namespace full_AI_tovch
                     HideRequested?.Invoke();
                     handled = true;
                 }
+                else if(hotkeyId == toggleLabelsHotkeyId)
+{
+                    ToggleLabelsRequested?.Invoke();
+                    handled = true;
+                }
             }
             return IntPtr.Zero;
         }
+
+
+    //以下为新添加的对于标签替换的热键注册处理代码
+        private static int toggleLabelsHotkeyId = 9003;
+
+        public static event Action ToggleLabelsRequested;
+
+        public static void RegisterToggleLabelsHotkey()
+        {
+            if (handle == IntPtr.Zero) return;
+            UnregisterHotKey(handle, toggleLabelsHotkeyId);
+            RegisterHotKey(handle, toggleLabelsHotkeyId,
+                ModifierKeysConverter.ToWin32(InteractionConfig.ToggleLabelsModifiers),
+                (uint)KeyInterop.VirtualKeyFromKey(InteractionConfig.ToggleLabelsKey));
         }
+
+        public static void UnregisterToggleLabelsHotkey()
+        {
+            UnregisterHotKey(handle, toggleLabelsHotkeyId);
+        }
+    } 
 }

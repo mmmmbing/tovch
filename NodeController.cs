@@ -106,8 +106,8 @@ namespace full_AI_tovch
             }
             else
             {
-                if (!string.IsNullOrEmpty(node.Text))
-                    TextInjection.Send(node.Text);
+                if (!string.IsNullOrEmpty(node.DisplayText))
+                    TextInjection.Send(node.DisplayText);
             }
         }
         // ---------- 对外暴露的细粒度控制方法 ----------
@@ -172,8 +172,20 @@ namespace full_AI_tovch
 
 
 
+        //隐藏标签绑定事件
+        /// <summary>通过路径切换节点标签（轮转）</summary>
+        public static void SwitchNodeLabel(List<MenuItemNode> rootNodes, string path)
+        {
+            var node = GetNode(rootNodes, path);
+            node?.SwitchToNextLabel();
+        }
 
-
+        /// <summary>通过路径执行节点的 ToggleLabel（含自定义动作）</summary>
+        public static void ToggleNodeLabel(List<MenuItemNode> rootNodes, string path)
+        {
+            var node = GetNode(rootNodes, path);
+            node?.ToggleLabel();
+        }
 
         //延迟绑定方法
         /// <summary>安全地添加点击处理器，即使按钮尚未创建也会自动延迟绑定</summary>

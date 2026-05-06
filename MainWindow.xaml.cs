@@ -69,6 +69,12 @@ namespace full_AI_tovch
             this.ShowInTaskbar = false;
             //this.FormBorderStyle = FormBorderStyle.None;
             // 防止窗口被激活抢焦点
+
+            // 构造函数或 SourceInitialized 中
+            MenuActivation.ToggleLabelsRequested += OnToggleLabels;
+
+
+
             NodeController.NavigateToChildren = NavigateToLevel;
             NodeController.NavigateBack = GoBack;
 
@@ -140,13 +146,21 @@ namespace full_AI_tovch
             InitializeRightButtonHandling();
 
         }
-      
+
+
+        //切换隐藏标签的代码
+        private void OnToggleLabels()
+        {
+            if (currentLevelNodes == null) return;
+            foreach (var node in currentLevelNodes)
+                node.ToggleLabel();
+        }
         private void ShowMenu()
         {
             try
             {
                 //this.Background = new SolidColorBrush(System.Windows.Media.Color.FromArgb(80, 255, 0, 0));
-
+                MenuActivation.RegisterToggleLabelsHotkey();
                 Visibility = Visibility.Visible;
                 
                 //Topmost = true;
@@ -165,9 +179,14 @@ namespace full_AI_tovch
 
         private void HideMenu()
         {
+
             if (Visibility != Visibility.Visible) return;
 
             Visibility = Visibility.Collapsed;
+
+            //注销切换热键
+            MenuActivation.UnregisterToggleLabelsHotkey();
+
             // 注销隐藏热键
             MenuActivation.UnregisterHideHotkey();
         }
@@ -216,7 +235,7 @@ namespace full_AI_tovch
 
                     Width = node.ButtonSize,
                     Height = node.ButtonSize,
-                    Content = node.Text,
+                    Content = node.DisplayText,
                     Focusable = false,
                     Cursor = Cursors.Hand,
                     Opacity = 1,                                     // 强行可见
@@ -374,9 +393,10 @@ namespace full_AI_tovch
             }
         }
     }
-            };
+};
             rootNodes = NodeTree.BuildTree(config);
-            
+
+            LabelConfig.Apply(rootNodes);
             NodeController.ConfigureAll(rootNodes);
 
             
@@ -384,7 +404,7 @@ namespace full_AI_tovch
             //NodeController.SetNodeText(rootNodes, "0", "开始");
             NodeController.SetNodeAnimationOverrides(rootNodes, "1/0", showDuration: 0.5);
 
-            
+
         }
 
         // 切换到指定层级（播放出现动画，隐藏其他）
@@ -561,7 +581,7 @@ namespace full_AI_tovch
             {
                 Width = node.ButtonSize,
                 Height = node.ButtonSize,
-                Content = node.Text,
+                Content = node.DisplayText,
                 Focusable = false,
                 Cursor = Cursors.Hand,
                 Opacity = 1,

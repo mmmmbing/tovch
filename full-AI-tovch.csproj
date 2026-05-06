@@ -74,6 +74,7 @@
       <SubType>Designer</SubType>
     </ApplicationDefinition>
     <Compile Include="InteractionConfig.cs" />
+    <Compile Include="LabelConfig.cs" />
     <Compile Include="MenuActivation.cs" />
     <Compile Include="NodeController.cs" />
     <Compile Include="TextInjection.cs" />
