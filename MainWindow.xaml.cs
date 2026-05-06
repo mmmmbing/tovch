@@ -268,28 +268,93 @@ namespace full_AI_tovch
             {
                 TrackRadius = 100,
                 ButtonSize = 50,
-                VertexCount = 6,
-                Labels = new List<string> { "水果", "颜色", "动物", "数字", "动作", "其他" },
+                VertexCount = 4,
+                Labels = new List<string> { "num", "charaters", "Sym", "special" },
                 ExpandableConfigs = new Dictionary<int, NodeTreeConfig>
     {
-        { 1, new NodeTreeConfig    // 颜色节点展开出 3 个子项
+        { 0, new NodeTreeConfig    // 颜色节点展开出 3 个子项
             {
-                TrackRadius = 60,
-                ButtonSize = 35,
-                VertexCount = 3,
-                Labels = new List<string> { "红", "绿", "蓝" }
+                TrackRadius = 100,
+                ButtonSize = 50,
+                VertexCount = 10,
+                Labels = new List<string> { "0", "1", "2","3","4","5","6","7","8","9" }
                 // 颜色子项不再展开 → 叶子节点
             }
         },
-        { 2, new NodeTreeConfig    // 动物节点展开出 4 个子项
+        { 1, new NodeTreeConfig    // 动物节点展开出 4 个子项
             {
-                TrackRadius = 60,
-                ButtonSize = 35,
-                VertexCount = 4,
-                Labels = new List<string> { "猫", "狗", "鸟", "鱼" }
+                TrackRadius = 100,
+                ButtonSize = 50,
+                VertexCount = 6,
+                Labels = new List<string> { "A-E", "F-J", "K-O", "P-T","U-Y","Z" },
+                ExpandableConfigs = new Dictionary<int, NodeTreeConfig>
+                {
+                     { 0, new NodeTreeConfig   
+                        {
+                            TrackRadius = 100,
+                            ButtonSize = 50,
+                            VertexCount = 5,
+                            Labels = new List<string> { "A", "B","C","D","E" }
+                        }
+                    },
+                    { 2, new NodeTreeConfig  
+                        {
+                            TrackRadius = 100,
+                            ButtonSize = 50,
+                            VertexCount = 5,
+                            Labels = new List<string> { "F", "G","H","I","J" }
+                        }
+                    },
+                    { 3, new NodeTreeConfig  
+                        {
+                            TrackRadius = 100,
+                            ButtonSize = 50,
+                            VertexCount = 5,
+                            Labels = new List<string> { "K", "M","L","N","Q" }
+                        }
+                    },
+                    { 4, new NodeTreeConfig  
+                        {
+                            TrackRadius = 100,
+                            ButtonSize = 50,
+                            VertexCount = 5,
+                            Labels = new List<string> { "P", "Q","R","S","T" }
+                        }
+                    },
+                    { 5, new NodeTreeConfig
+                        {
+                            TrackRadius = 100,
+                            ButtonSize = 50,
+                            VertexCount = 5,
+                            Labels = new List<string> { "U", "V","W","X","Y" }
+                        }
+                    }
+
+
+
+                }
             }
         },
-        { 4, new NodeTreeConfig    // 动作节点展开出 2 个子项，且子项还能继续展开
+        { 2, new NodeTreeConfig    // 动作节点展开出 2 个子项，且子项还能继续展开
+            {
+                TrackRadius = 100,
+                ButtonSize = 50,
+                VertexCount = 10,
+                Labels = new List<string> { "!", "@","#","$","%","^","&","*","(",")" },
+                //ExpandableConfigs = new Dictionary<int, NodeTreeConfig>
+                //{
+                //    { 0, new NodeTreeConfig   // “跑”展开
+                //        {
+                //            TrackRadius = 40,
+                //            ButtonSize = 25,
+                //            VertexCount = 2,
+                //            Labels = new List<string> { "快跑", "慢跑" }
+                //        }
+                //    }
+                //}
+            }
+        },
+        { 3, new NodeTreeConfig    // 动作节点展开出 2 个子项，且子项还能继续展开
             {
                 TrackRadius = 60,
                 ButtonSize = 35,
@@ -316,7 +381,7 @@ namespace full_AI_tovch
 
             
             // 还可立即进行个性定制，例如：
-            NodeController.SetNodeText(rootNodes, "0", "开始");
+            //NodeController.SetNodeText(rootNodes, "0", "开始");
             NodeController.SetNodeAnimationOverrides(rootNodes, "1/0", showDuration: 0.5);
 
             

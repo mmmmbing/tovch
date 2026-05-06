@@ -5,6 +5,9 @@ using System.Data;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Input;
+using System.Windows.Media;
 
 namespace full_AI_tovch
 {
@@ -17,6 +20,7 @@ namespace full_AI_tovch
         {
             base.OnStartup(e);
             new MainWindow().Show();
+
         }
     }
 
