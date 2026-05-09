@@ -38,7 +38,12 @@ namespace full_AI_tovch
                 }
                 else if (!isLeaf && trigger.OnClickForExpandable == TriggerAction.ClickExpandChildren)
                 {
-                    node.UiButton.Click += (s, e) => NodeActionHandlers.ExpandChildren(node);
+                    node.UiButton.Click += (s, e) =>
+                    {
+                        // 确保设置 pending center（有些路径可能没有调用 ExpandChildren 内的设置，但为了双重保险）
+                        MainWindow.Instance?.SetPendingCenter(node.CenterX, node.CenterY);
+                        NodeActionHandlers.ExpandChildren(node);
+                    };
                 }
                 else
                 {
@@ -47,42 +52,42 @@ namespace full_AI_tovch
 
                 // 绑定 MouseEnter（外观 + 展开 + 停止计时器）
                 // 先绑定停止自动返回计时器（无论何种触发器）
-                node.UiButton.MouseEnter += (s, e) => MainWindow.StopAutoBackTimer();
+                //node.UiButton.MouseEnter += (s, e) => MainWindow.StopAutoBackTimer();
 
-                if (!isLeaf && !isModifier && trigger.OnMouseEnterForExpandable == TriggerAction.MouseEnterExpandChildren)
-                {
-                    node.UiButton.MouseEnter += (s, e) => NodeActionHandlers.ExpandChildren(node);
-                }
+                //if (!isLeaf && !isModifier && trigger.OnMouseEnterForExpandable == TriggerAction.MouseEnterExpandChildren)
+                //{
+                //    node.UiButton.MouseEnter += (s, e) => NodeActionHandlers.ExpandChildren(node);
+                //}
 
-                if (trigger.OnMouseEnterAppearance == TriggerAction.MouseEnterChangeAppearance)
-                {
-                    node.UiButton.MouseEnter += (s, e) =>
-                    {
-                        if (trigger.HoverBackground.HasValue)
-                            node.UiButton.Background = new SolidColorBrush(trigger.HoverBackground.Value);
-                        if (trigger.HoverScale.HasValue)
-                        {
-                            node.UiButton.RenderTransform = new ScaleTransform(trigger.HoverScale.Value, trigger.HoverScale.Value);
-                            node.UiButton.RenderTransformOrigin = new Point(0.5, 0.5);
-                        }
-                    };
-                }
+                //if (trigger.OnMouseEnterAppearance == TriggerAction.MouseEnterChangeAppearance)
+                //{
+                //    node.UiButton.MouseEnter += (s, e) =>
+                //    {
+                //        if (trigger.HoverBackground.HasValue)
+                //            node.UiButton.Background = new SolidColorBrush(trigger.HoverBackground.Value);
+                //        if (trigger.HoverScale.HasValue)
+                //        {
+                //            node.UiButton.RenderTransform = new ScaleTransform(trigger.HoverScale.Value, trigger.HoverScale.Value);
+                //            node.UiButton.RenderTransformOrigin = new Point(0.5, 0.5);
+                //        }
+                //    };
+                //}
 
                 // 绑定 MouseLeave（外观恢复 + 启动返回计时器）
-                if (trigger.OnMouseLeaveAppearance == TriggerAction.MouseLeaveRestoreAppearance)
-                {
-                    node.UiButton.MouseLeave += (s, e) =>
-                    {
-                        if (trigger.AppearanceBackground.HasValue)
-                            node.UiButton.Background = new SolidColorBrush(trigger.AppearanceBackground.Value);
-                        node.UiButton.RenderTransform = new ScaleTransform(1.0, 1.0);
-                    };
-                }
+                //if (trigger.OnMouseLeaveAppearance == TriggerAction.MouseLeaveRestoreAppearance)
+                //{
+                //    node.UiButton.MouseLeave += (s, e) =>
+                //    {
+                //        if (trigger.AppearanceBackground.HasValue)
+                //            node.UiButton.Background = new SolidColorBrush(trigger.AppearanceBackground.Value);
+                //        node.UiButton.RenderTransform = new ScaleTransform(1.0, 1.0);
+                //    };
+                //}
 
-                if (trigger.OnMouseLeaveForBack == TriggerAction.MouseLeaveBack)
-                {
-                    node.UiButton.MouseLeave += (s, e) => MainWindow.TriggerDelayedBack();
-                }
+                //if (trigger.OnMouseLeaveForBack == TriggerAction.MouseLeaveBack)
+                //{
+                //    node.UiButton.MouseLeave += (s, e) => MainWindow.TriggerDelayedBack();
+                //}
 
                 // 递归子节点
                 if (includeChildren && node.Children.Count > 0)

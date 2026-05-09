@@ -42,31 +42,58 @@ namespace full_AI_tovch
         {
             if (node == null || string.IsNullOrEmpty(node.DisplayText)) return;
 
-            // 处理功能键
+            // ---------- 处理功能键 (Tab, Enter 等) ----------
             if (specialKeys.Contains(node.DisplayText))
             {
-                if (Enum.TryParse<Key>(node.DisplayText, true, out Key key))
-                    TextInjection.SendKey(key, ModifierKeyState.GetCurrentModifierKeys());
+                ModifierKeys currentMods = ModifierKeyState.GetCurrentModifierKeys();
+
+                if (currentMods == ModifierKeys.None)
+                {
+                    // 无修饰键：用 SendKeys 发送功能键 (稳定)
+                    string sendKeyText;
+                    switch (node.DisplayText.ToLowerInvariant())
+                    {
+                        case "Tab": sendKeyText = "{TAB}"; break;
+                        case "enter": sendKeyText = "{ENTER}"; break;
+                        case "backspace": sendKeyText = "{BACKSPACE}"; break;
+                        case "delete": sendKeyText = "{DELETE}"; break;
+                        case "escape": sendKeyText = "{ESC}"; break;
+                        case "space": sendKeyText = " "; break;
+                        case "up": sendKeyText = "{UP}"; break;
+                        case "down": sendKeyText = "{DOWN}"; break;
+                        case "left": sendKeyText = "{LEFT}"; break;
+                        case "right": sendKeyText = "{RIGHT}"; break;
+                        default: sendKeyText = "{" + node.DisplayText + "}"; break;
+                    }
+                    System.Windows.Forms.SendKeys.SendWait(sendKeyText);
+                }
                 else
-                    TextInjection.Send(node.DisplayText);
-                // 清除修饰键等...
-                if (ModifierKeyState.AutoClearAfterSend) ModifierKeyState.ClearModifiers();
+                {
+                    // 有修饰键：用 SendInput 发送组合键
+                    if (Enum.TryParse<Key>(node.DisplayText, true, out Key key))
+                        TextInjection.SendKey(key, currentMods);
+                    else
+                        System.Windows.Forms.SendKeys.SendWait("{" + node.DisplayText + "}");
+                }
+
+                if (ModifierKeyState.AutoClearAfterSend)
+                    ModifierKeyState.ClearModifiers();
                 UpdateModifierStatusUI?.Invoke();
                 return;
             }
 
+            // ---------- 普通文本节点 ----------
             ModifierKeys mods = ModifierKeyState.GetCurrentModifierKeys();
             bool caps = ModifierKeyState.CapsLockActive;
 
-            // CapsLock 处理：单字母自动大写（直接发送字符的大写版本，绕过 SendKey）
+            // CapsLock 处理
             if (caps && node.DisplayText.Length == 1 && char.IsLetter(node.DisplayText[0]))
             {
                 char upper = char.ToUpper(node.DisplayText[0]);
-                TextInjection.Send(upper.ToString()); // 现在会通过 SendKeys 发送
+                TextInjection.Send(upper.ToString());
             }
             else if (mods != ModifierKeys.None)
             {
-                // 有修饰键，尝试组合键发送
                 Key key = KeyInterop.KeyFromVirtualKey(0);
                 if (node.DisplayText.Length == 1)
                 {
@@ -81,11 +108,10 @@ namespace full_AI_tovch
                 if (key != Key.None)
                     TextInjection.SendKey(key, mods);
                 else
-                    TextInjection.Send(node.DisplayText); // 回退
+                    TextInjection.Send(node.DisplayText);
             }
             else
             {
-                // 无修饰键，普通文本注入
                 TextInjection.Send(node.DisplayText);
             }
 
@@ -95,24 +121,15 @@ namespace full_AI_tovch
         }
 
         /// <summary>展开节点的子层</summary>
-        public static void ExpandChildren(MenuItemNode node)
-        {
-            if (node == null || node.Children.Count == 0) return;
-            try
-            {
-                if (PrepareChildrenLayout == null)
-                    MessageBox.Show("PrepareChildrenLayout 委托为 null！");
-                if (NavigateToChildren == null)
-                    MessageBox.Show("NavigateToChildren 委托为 null！");
-
-                PrepareChildrenLayout?.Invoke(node);
-                NavigateToChildren?.Invoke(node.Children);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("展开子节点异常: " + ex.Message);
-            }
-        }
+public static void ExpandChildren(MenuItemNode node)
+{
+    if (node == null || node.Children.Count == 0) return;
+    PrepareChildrenLayout?.Invoke(node);
+    // 更新待使用的中心点
+    if (MainWindow.Instance != null)
+        MainWindow.Instance.SetPendingCenter(node.CenterX, node.CenterY);
+    NavigateToChildren?.Invoke(node.Children);
+}
 
         /// <summary>切换节点标签</summary>
         public static void SwitchLabel(MenuItemNode node)

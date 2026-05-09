@@ -51,4 +51,15 @@ namespace full_AI_tovch
         }
         // 更多全局方法可根据需要添加
     }
+    public static class CenterNodeConfig
+    {
+        public static bool ShowCenterNode { get; set; } = true;
+        public static double ButtonSize { get; set; } = 60;
+        public static Brush Background { get; set; } = new SolidColorBrush(Color.FromRgb(80, 80, 80));
+        public static Brush Foreground { get; set; } = Brushes.White;
+        public static string Text { get; set; } = "↩";
+        public static double LongPressThresholdMs { get; set; } = 500;
+        public static double DeleteRepeatIntervalMs { get; set; } = 100;
+        public static string DeleteKey { get; set; } = "{BACKSPACE}";
+    }
 }

@@ -53,11 +53,13 @@ namespace full_AI_tovch
         private List<MenuItemNode> currentLevelNodes;
         // 历史层级，用于后退（每层保存其节点列表）
         private readonly Stack<List<MenuItemNode>> history = new Stack<List<MenuItemNode>>();
-        private DispatcherTimer autoBackTimer;
+        //private DispatcherTimer autoBackTimer;
+
+        private Point pendingCenterPoint;
 
         //右键离开后返回上一级菜单
-        private bool enableAutoBack = true;   // 可由 InteractionConfig 控制
-        private int autoBackDelayMs = 50000;
+        //private bool enableAutoBack = true;   // 可由 InteractionConfig 控制
+        //private int autoBackDelayMs = 50000;
 
 
         //是否是修饰节点上右键
@@ -69,6 +71,10 @@ namespace full_AI_tovch
         private System.Windows.Threading.DispatcherTimer deleteRepeatTimer;
         private DateTime rightButtonDownTime;
 
+        private Button centerButton;
+        private double currentCenterX, currentCenterY;
+        private Stack<Tuple<double, double>> centerHistory = new Stack<Tuple<double, double>>();
+
 
         private static MainWindow _instance;
         private TextBlock statusIndicator;
@@ -77,8 +83,6 @@ namespace full_AI_tovch
 
             InitializeComponent();
             _instance = this;
-
-
 
             this.ShowInTaskbar = false;
             //this.FormBorderStyle = FormBorderStyle.None;
@@ -89,14 +93,28 @@ namespace full_AI_tovch
 
 
             //初始化计时器
-            autoBackTimer = new DispatcherTimer();
-            autoBackTimer.Interval = TimeSpan.FromMilliseconds(autoBackDelayMs);
-            autoBackTimer.Tick += (s, ev) =>
+            //autoBackTimer = new DispatcherTimer();
+            //autoBackTimer.Interval = TimeSpan.FromMilliseconds(autoBackDelayMs);
+            //autoBackTimer.Tick += (s, ev) =>
+            //{
+            //    autoBackTimer.Stop();
+            //    if (enableAutoBack)
+            //        GoBack();
+            //};
+
+            //this.PreviewMouseRightButtonUp += (s, e) =>
+            //{
+            //    // 简单判断如果右键按下的时间很短就返回
+            //    if ((DateTime.Now - rightButtonDownTime).TotalMilliseconds < InteractionConfig.LongPressThreshold)
+            //    {
+            //        GoBack();
+            //    }
+            //};
+            this.PreviewMouseRightButtonDown += (s, e) =>
             {
-                autoBackTimer.Stop();
-                if (enableAutoBack)
-                    GoBack();
+                rightButtonDownTime = DateTime.Now;
             };
+
 
             NodeActionHandlers.UpdateModifierKeyAppearance = (node) =>
             {
@@ -236,19 +254,19 @@ namespace full_AI_tovch
 
 
         //自动回到上一级速度
-        public static void TriggerDelayedBack()
-        {
-            if (_instance != null)
-            {
-                _instance.autoBackTimer.Stop();
-                _instance.autoBackTimer.Start();
-            }
-        }
+        //public static void TriggerDelayedBack()
+        //{
+        //    if (_instance != null)
+        //    {
+        //        _instance.autoBackTimer.Stop();
+        //        _instance.autoBackTimer.Start();
+        //    }
+        //}
 
-        public static void StopAutoBackTimer()
-        {
-            _instance?.autoBackTimer.Stop();
-        }
+        //public static void StopAutoBackTimer()
+        //{
+        //    _instance?.autoBackTimer.Stop();
+        //}
 
         //切换隐藏标签的代码
         private void OnToggleLabels()
@@ -363,14 +381,19 @@ namespace full_AI_tovch
                 // 添加到画布
                 MainCanvas.Children.Add(btn);
                 //绑定节点
-                btn.PreviewMouseRightButtonDown += OnButtonRightButtonDown;
-                btn.PreviewMouseRightButtonUp += OnButtonRightButtonUp;
-                btn.MouseLeave += OnButtonMouseLeave;
+                //btn.PreviewMouseRightButtonDown += OnButtonRightButtonDown;
+                //btn.PreviewMouseRightButtonUp += OnButtonRightButtonUp;
+                //btn.MouseLeave += OnButtonMouseLeave;
                 node.UiButton = btn;
 
                 //临时不播放动画，直接可见
                 node.PlayShowAnimation();
             }
+
+            //生成中心节点
+            currentCenterX = centerX - 237+268 -60+4;
+            currentCenterY = centerY + 27 -68 +20+3;
+            CreateCenterButton(currentCenterX, currentCenterY);
 
             NodeEventBinder.Bind(rootNodes);
             // 再弹一下画布上的按钮总数
@@ -512,15 +535,26 @@ namespace full_AI_tovch
         // 切换到指定层级（播放出现动画，隐藏其他）
         private void NavigateToLevel(List<MenuItemNode> newLevelNodes)
         {
-            // 隐藏当前层级
+            // ⚠️ 先保存当前层级的中心（用于返回）
+            centerHistory.Push(new Tuple<double, double>(currentCenterX, currentCenterY));
+
+            // 再更新为新层级的中心（如果有 pending 的中心点）
+            if (!double.IsNaN(pendingCenterPoint.X) && !double.IsNaN(pendingCenterPoint.Y))
+            {
+                currentCenterX = pendingCenterPoint.X;
+                currentCenterY = pendingCenterPoint.Y;
+                pendingCenterPoint = new Point(double.NaN, double.NaN);
+            }
+
+            // 原有的隐藏与显示逻辑
             if (currentLevelNodes != null)
             {
                 PlayHideLevel(currentLevelNodes, () =>
                 {
-                    // 移除按钮后显示新层级
                     ClearCanvas();
                     CreateAndShowLevel(newLevelNodes);
                 });
+                // 注意：history 压入的是当前显示的层级，我们已在上面保存了中心，这里照常
                 history.Push(currentLevelNodes);
             }
             else
@@ -607,8 +641,12 @@ namespace full_AI_tovch
         {
             if (history.Count == 0) return;
             var previousLevel = history.Pop();
-
-            // 隐藏当前节点，然后显示上一级
+            if (centerHistory.Count > 0)
+            {
+                var prevCenter = centerHistory.Pop();
+                currentCenterX = prevCenter.Item1;
+                currentCenterY = prevCenter.Item2;
+            }
             PlayHideLevel(currentLevelNodes, () =>
             {
                 ClearCanvas();
@@ -617,8 +655,8 @@ namespace full_AI_tovch
                     CreateButtonForNode(node);
                     node.PlayShowAnimation();
                 }
-
                 NodeEventBinder.Bind(previousLevel);
+                CreateCenterButton(currentCenterX, currentCenterY);
             });
             currentLevelNodes = previousLevel;
         }
@@ -662,6 +700,7 @@ namespace full_AI_tovch
                 node.PlayShowAnimation();
             }
             NodeEventBinder.Bind(nodes);
+            CreateCenterButton(currentCenterX, currentCenterY);
             NodeActionHandlers.UpdateModifierStatusUI?.Invoke();
         }
 
@@ -706,9 +745,9 @@ namespace full_AI_tovch
 
             System.Diagnostics.Debug.WriteLine($"按钮已添加: {btn.Content}, 子元素总数: {MainCanvas.Children.Count}");
 
-            btn.PreviewMouseRightButtonDown += OnButtonRightButtonDown;
-            btn.PreviewMouseRightButtonUp += OnButtonRightButtonUp;
-            btn.MouseLeave += OnButtonMouseLeave;
+            //btn.PreviewMouseRightButtonDown += OnButtonRightButtonDown;
+            //btn.PreviewMouseRightButtonUp += OnButtonRightButtonUp;
+            //btn.MouseLeave += OnButtonMouseLeave;
 
             node.UiButton = btn;
 
@@ -737,6 +776,85 @@ namespace full_AI_tovch
             template.VisualTree = border;
             return template;
         }
+
+        //生成中心模板
+        private void CreateCenterButton(double cx, double cy)
+        {
+            if (!CenterNodeConfig.ShowCenterNode) return;
+
+            // 先移除旧的中心按钮（如果有）
+            if (centerButton != null && MainCanvas.Children.Contains(centerButton))
+                MainCanvas.Children.Remove(centerButton);
+
+            var btn = new Button
+            {
+                Width = CenterNodeConfig.ButtonSize,
+                Height = CenterNodeConfig.ButtonSize,
+                Content = CenterNodeConfig.Text,
+                FontSize = 20,
+                FontWeight = FontWeights.Bold,
+                Foreground = CenterNodeConfig.Foreground,
+                Background = CenterNodeConfig.Background,
+                Focusable = false,
+                Cursor = Cursors.Hand,
+                Template = CreateCircleButtonTemplate(CenterNodeConfig.ButtonSize / 2)
+            };
+
+            Canvas.SetLeft(btn, cx - CenterNodeConfig.ButtonSize / 2);
+            Canvas.SetTop(btn, cy - CenterNodeConfig.ButtonSize / 2);
+            MainCanvas.Children.Add(btn);
+
+            // 长按删除逻辑
+            DispatcherTimer longPressTimer = new DispatcherTimer();
+            DispatcherTimer deleteRepeatTimer = new DispatcherTimer();
+            bool isLongPressTriggered = false;
+            //bool isMouseDown = false;
+
+            longPressTimer.Interval = TimeSpan.FromMilliseconds(CenterNodeConfig.LongPressThresholdMs);
+            longPressTimer.Tick += (s, e) =>
+            {
+                longPressTimer.Stop();
+                isLongPressTriggered = true;
+                deleteRepeatTimer.Interval = TimeSpan.FromMilliseconds(CenterNodeConfig.DeleteRepeatIntervalMs);
+                deleteRepeatTimer.Start();
+                // 立即发送一次
+                System.Windows.Forms.SendKeys.SendWait(CenterNodeConfig.DeleteKey);
+            };
+
+            deleteRepeatTimer.Tick += (s, e) =>
+            {
+                System.Windows.Forms.SendKeys.SendWait(CenterNodeConfig.DeleteKey);
+            };
+
+            btn.Click += (s, e) =>
+            {
+                // 短按：如果未触发长按，则返回上一级
+                if (!isLongPressTriggered)
+                    GoBack();
+                isLongPressTriggered = false; // 重置
+            };
+
+            btn.PreviewMouseLeftButtonDown += (s, e) =>
+            {
+                isLongPressTriggered = false;
+                longPressTimer.Start();
+            };
+
+            btn.PreviewMouseLeftButtonUp += (s, e) =>
+            {
+                longPressTimer.Stop();
+                deleteRepeatTimer.Stop();
+            };
+
+            btn.MouseLeave += (s, e) =>
+            {
+                longPressTimer.Stop();
+                deleteRepeatTimer.Stop();
+            };
+
+            centerButton = btn;
+        }
+
 
         // 点击空白区域后退
         private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -776,55 +894,59 @@ namespace full_AI_tovch
             longPressTimer.Start();
             e.Handled = true;
         }
-
+        public static MainWindow Instance => _instance;
         // 按钮上右键释放：短按返回，长按结束删除
-        private void OnButtonRightButtonUp(object sender, MouseButtonEventArgs e)
+        //private void OnButtonRightButtonUp(object sender, MouseButtonEventArgs e)
+        //{
+        //    if (!isRightButtonPressed) return;
+
+        //    // 处理修饰键右键
+        //    if (isModifierRightClick)
+        //    {
+        //        isModifierRightClick = false;
+        //        isRightButtonPressed = false;
+        //        // 短按判定（防止长时间按住被当成其他操作）
+        //        if ((DateTime.Now - rightButtonDownTime).TotalMilliseconds < InteractionConfig.LongPressThreshold)
+        //        {
+        //            Button btn = sender as Button;
+        //            MenuItemNode node = btn?.Tag as MenuItemNode;
+        //            if (node != null && node.Children.Count > 0)
+        //            {
+        //                // 展开子节点
+        //                NodeActionHandlers.ExpandChildren(node);
+        //            }
+        //        }
+        //        e.Handled = true;
+        //        return;
+        //    }
+
+        //    // 普通节点原有逻辑
+        //    isRightButtonPressed = false;
+        //    longPressTimer.Stop();
+        //    bool wasDeleting = deleteRepeatTimer.IsEnabled;
+        //    deleteRepeatTimer.Stop();
+
+        //    if (!wasDeleting && (DateTime.Now - rightButtonDownTime).TotalMilliseconds < InteractionConfig.LongPressThreshold)
+        //    {
+        //        GoBack();
+        //    }
+        //    e.Handled = true;
+        //}
+
+        public void SetPendingCenter(double x, double y)
         {
-            if (!isRightButtonPressed) return;
-
-            // 处理修饰键右键
-            if (isModifierRightClick)
-            {
-                isModifierRightClick = false;
-                isRightButtonPressed = false;
-                // 短按判定（防止长时间按住被当成其他操作）
-                if ((DateTime.Now - rightButtonDownTime).TotalMilliseconds < InteractionConfig.LongPressThreshold)
-                {
-                    Button btn = sender as Button;
-                    MenuItemNode node = btn?.Tag as MenuItemNode;
-                    if (node != null && node.Children.Count > 0)
-                    {
-                        // 展开子节点
-                        NodeActionHandlers.ExpandChildren(node);
-                    }
-                }
-                e.Handled = true;
-                return;
-            }
-
-            // 普通节点原有逻辑
-            isRightButtonPressed = false;
-            longPressTimer.Stop();
-            bool wasDeleting = deleteRepeatTimer.IsEnabled;
-            deleteRepeatTimer.Stop();
-
-            if (!wasDeleting && (DateTime.Now - rightButtonDownTime).TotalMilliseconds < InteractionConfig.LongPressThreshold)
-            {
-                GoBack();
-            }
-            e.Handled = true;
+            pendingCenterPoint = new Point(x, y);
         }
-
         // 鼠标离开按钮：如果正在长按删除，则停止
-        private void OnButtonMouseLeave(object sender, MouseEventArgs e)
-        {
-            if (deleteRepeatTimer.IsEnabled)
-            {
-                longPressTimer.Stop();
-                deleteRepeatTimer.Stop();
-                isRightButtonPressed = false;
-            }
-        }
+        //private void OnButtonMouseLeave(object sender, MouseEventArgs e)
+        //{
+        //    if (deleteRepeatTimer.IsEnabled)
+        //    {
+        //        longPressTimer.Stop();
+        //        deleteRepeatTimer.Stop();
+        //        isRightButtonPressed = false;
+        //    }
+        //}
 
     }
 
