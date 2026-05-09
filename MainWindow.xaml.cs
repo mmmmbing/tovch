@@ -13,6 +13,7 @@ using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
+using System.Windows.Threading;
 using System.Xml.Linq;
 
 namespace full_AI_tovch
@@ -52,8 +53,15 @@ namespace full_AI_tovch
         private List<MenuItemNode> currentLevelNodes;
         // 历史层级，用于后退（每层保存其节点列表）
         private readonly Stack<List<MenuItemNode>> history = new Stack<List<MenuItemNode>>();
+        private DispatcherTimer autoBackTimer;
+
+        //右键离开后返回上一级菜单
+        private bool enableAutoBack = true;   // 可由 InteractionConfig 控制
+        private int autoBackDelayMs = 50000;
 
 
+        //是否是修饰节点上右键
+        private bool isModifierRightClick = false;
 
         // 右键长按相关
         private bool isRightButtonPressed = false;
@@ -61,10 +69,16 @@ namespace full_AI_tovch
         private System.Windows.Threading.DispatcherTimer deleteRepeatTimer;
         private DateTime rightButtonDownTime;
 
+
+        private static MainWindow _instance;
+        private TextBlock statusIndicator;
         public MainWindow()
         {
 
             InitializeComponent();
+            _instance = this;
+
+
 
             this.ShowInTaskbar = false;
             //this.FormBorderStyle = FormBorderStyle.None;
@@ -74,9 +88,50 @@ namespace full_AI_tovch
             MenuActivation.ToggleLabelsRequested += OnToggleLabels;
 
 
+            //初始化计时器
+            autoBackTimer = new DispatcherTimer();
+            autoBackTimer.Interval = TimeSpan.FromMilliseconds(autoBackDelayMs);
+            autoBackTimer.Tick += (s, ev) =>
+            {
+                autoBackTimer.Stop();
+                if (enableAutoBack)
+                    GoBack();
+            };
 
-            NodeController.NavigateToChildren = NavigateToLevel;
-            NodeController.NavigateBack = GoBack;
+            NodeActionHandlers.UpdateModifierKeyAppearance = (node) =>
+            {
+                if (node?.UiButton == null) return;
+                bool active = false;
+                if (ModifierKeyConfig.ModifierKeyMap.TryGetValue(node.Path, out var key))
+                {
+                    if (key == Key.CapsLock)
+                        active = ModifierKeyState.CapsLockActive;
+                    else
+                        active = ModifierKeyState.GetCurrentModifierKeys().HasFlag(NodeActionHandlers.KeyToModifier(key));
+                }
+                node.UiButton.Background = active ? Brushes.Gold : Brushes.LightBlue;
+            };
+
+            NodeActionHandlers.UpdateModifierStatusUI = () =>
+            {
+                if (!ModifierKeyConfig.ShowStatusIndicator) return;
+                string txt = ModifierKeyState.CapsLockActive ? "CapsLock" : "";
+                var mods = ModifierKeyState.GetCurrentModifierKeys();
+                if (mods.HasFlag(ModifierKeys.Control)) txt += " Ctrl";
+                if (mods.HasFlag(ModifierKeys.Shift)) txt += " Shift";
+                if (mods.HasFlag(ModifierKeys.Alt)) txt += " Alt";
+                if (mods.HasFlag(ModifierKeys.Windows)) txt += " Win";
+                UpdateModifierStatusText(txt.Trim());
+            };
+
+
+            NodeActionHandlers.NavigateToChildren = NavigateToLevel;
+            NodeActionHandlers.NavigateBack = GoBack;
+            NodeActionHandlers.PrepareChildrenLayout = (parentNode) =>
+            {
+                LayoutNodesAroundPoint(parentNode.Children, parentNode.CenterX, parentNode.CenterY);
+            };
+
 
             NodeController.MouseEnterNode = (node) =>
             {
@@ -147,6 +202,53 @@ namespace full_AI_tovch
 
         }
 
+
+        private void UpdateModifierStatusText(string text)
+        {
+            if (statusIndicator == null)
+            {
+                statusIndicator = new TextBlock
+                {
+                    FontSize = 14,
+                    Foreground = Brushes.White,
+                    Background = new SolidColorBrush(Color.FromArgb(180, 0, 0, 0)),
+                    Padding = new Thickness(4),
+                    FontWeight = FontWeights.Bold
+                };
+                MainCanvas.Children.Add(statusIndicator);
+            }
+            statusIndicator.Text = text;
+            statusIndicator.Visibility = string.IsNullOrEmpty(text) ? Visibility.Collapsed : Visibility.Visible;
+
+            // 放置在当前层级的轨道外部
+            if (currentLevelNodes != null && currentLevelNodes.Count > 0)
+            {
+                // 取第一个节点的中心点（所有节点共享同一中心）
+                double cx = currentLevelNodes[0].CenterX;
+                double cy = currentLevelNodes[0].CenterY;
+                double radius = currentLevelNodes[0].SelfTrackRadius + 20;
+                // 放在右上方
+                Canvas.SetLeft(statusIndicator, cx + radius);
+                Canvas.SetTop(statusIndicator, cy - radius);
+            }
+        }
+
+
+
+        //自动回到上一级速度
+        public static void TriggerDelayedBack()
+        {
+            if (_instance != null)
+            {
+                _instance.autoBackTimer.Stop();
+                _instance.autoBackTimer.Start();
+            }
+        }
+
+        public static void StopAutoBackTimer()
+        {
+            _instance?.autoBackTimer.Stop();
+        }
 
         //切换隐藏标签的代码
         private void OnToggleLabels()
@@ -248,8 +350,8 @@ namespace full_AI_tovch
                     Template = CreateCircleButtonTemplate(50)                              // 用默认按钮样式（方角）
                 };
 
-               
 
+                btn.Tag = node;
                 //MessageBox.Show(node.CenterX.ToString() + " "+ node.CenterY.ToString() );
                 // 设置位置（已经考虑 ButtonSize 偏移）
                 Canvas.SetLeft(btn,node.CenterX -node.ButtonSize);
@@ -270,13 +372,13 @@ namespace full_AI_tovch
                 node.PlayShowAnimation();
             }
 
-            NodeController.ConfigureAll(rootNodes);
+            NodeEventBinder.Bind(rootNodes);
             // 再弹一下画布上的按钮总数
             currentLevelNodes = rootNodes;
 
             //        MessageBox.Show($"Canvas 子元素总数: {MainCanvas.Children.Count}, " +
             //$"其中 Button 数量: {MainCanvas.Children.OfType<Button>().Count()}");
-
+            NodeActionHandlers.UpdateModifierStatusUI?.Invoke();
 
         }
 
@@ -288,7 +390,7 @@ namespace full_AI_tovch
                 TrackRadius = 100,
                 ButtonSize = 50,
                 VertexCount = 4,
-                Labels = new List<string> { "num", "charaters", "Sym", "special" },
+                Labels = new List<string> { "num", "charaters", "special", "Sym" },
                 ExpandableConfigs = new Dictionary<int, NodeTreeConfig>
     {
         { 0, new NodeTreeConfig    // 颜色节点展开出 3 个子项
@@ -316,7 +418,7 @@ namespace full_AI_tovch
                             Labels = new List<string> { "A", "B","C","D","E" }
                         }
                     },
-                    { 2, new NodeTreeConfig  
+                    { 1, new NodeTreeConfig  
                         {
                             TrackRadius = 100,
                             ButtonSize = 50,
@@ -324,7 +426,7 @@ namespace full_AI_tovch
                             Labels = new List<string> { "F", "G","H","I","J" }
                         }
                     },
-                    { 3, new NodeTreeConfig  
+                    { 2, new NodeTreeConfig  
                         {
                             TrackRadius = 100,
                             ButtonSize = 50,
@@ -332,7 +434,7 @@ namespace full_AI_tovch
                             Labels = new List<string> { "K", "M","L","N","Q" }
                         }
                     },
-                    { 4, new NodeTreeConfig  
+                    { 3, new NodeTreeConfig  
                         {
                             TrackRadius = 100,
                             ButtonSize = 50,
@@ -340,7 +442,7 @@ namespace full_AI_tovch
                             Labels = new List<string> { "P", "Q","R","S","T" }
                         }
                     },
-                    { 5, new NodeTreeConfig
+                    { 4, new NodeTreeConfig
                         {
                             TrackRadius = 100,
                             ButtonSize = 50,
@@ -358,8 +460,8 @@ namespace full_AI_tovch
             {
                 TrackRadius = 100,
                 ButtonSize = 50,
-                VertexCount = 10,
-                Labels = new List<string> { "!", "@","#","$","%","^","&","*","(",")" },
+                VertexCount = 11,
+                Labels = new List<string> { "!", "@","#","$","%","^","&","*","(",")","Tab" },
                 //ExpandableConfigs = new Dictionary<int, NodeTreeConfig>
                 //{
                 //    { 0, new NodeTreeConfig   // “跑”展开
@@ -375,10 +477,10 @@ namespace full_AI_tovch
         },
         { 3, new NodeTreeConfig    // 动作节点展开出 2 个子项，且子项还能继续展开
             {
-                TrackRadius = 60,
-                ButtonSize = 35,
-                VertexCount = 2,
-                Labels = new List<string> { "跑", "跳" },
+                TrackRadius = 100,
+                ButtonSize = 50,
+                VertexCount = 5,
+                Labels = new List<string> { "Win", "Shift","Ctrl","CapsLk","Alt" },
                 ExpandableConfigs = new Dictionary<int, NodeTreeConfig>
                 {
                     { 0, new NodeTreeConfig   // “跑”展开
@@ -397,7 +499,7 @@ namespace full_AI_tovch
             rootNodes = NodeTree.BuildTree(config);
 
             LabelConfig.Apply(rootNodes);
-            NodeController.ConfigureAll(rootNodes);
+            //NodeController.ConfigureAll(rootNodes);
 
             
             // 还可立即进行个性定制，例如：
@@ -516,7 +618,7 @@ namespace full_AI_tovch
                     node.PlayShowAnimation();
                 }
 
-                NodeController.ConfigureAll(previousLevel);
+                NodeEventBinder.Bind(previousLevel);
             });
             currentLevelNodes = previousLevel;
         }
@@ -552,15 +654,16 @@ namespace full_AI_tovch
 
         // 创建并显示一层节点（立即出现动画）
         private void CreateAndShowLevel(List<MenuItemNode> nodes)
-{
-    if (nodes == null) return;
-    foreach (var node in nodes)
-    {
-        CreateButtonForNode(node);
-        node.PlayShowAnimation();
-    }
-            NodeController.ConfigureAll(nodes);
-}
+        {
+            if (nodes == null) return;
+            foreach (var node in nodes)
+            {
+                CreateButtonForNode(node);
+                node.PlayShowAnimation();
+            }
+            NodeEventBinder.Bind(nodes);
+            NodeActionHandlers.UpdateModifierStatusUI?.Invoke();
+        }
 
         // 在指定中心点周围均匀排布节点，并存储坐标
         private void LayoutNodesAroundPoint(List<MenuItemNode> nodes, double cx, double cy, double startAngle = 0)
@@ -589,7 +692,7 @@ namespace full_AI_tovch
                 RenderTransformOrigin = new System.Windows.Point(0.5, 0.5),
                 Template = CreateCircleButtonTemplate(node.ButtonSize / 2)   // 直接设置
             };
-
+            btn.Tag = node;
             // 不设置 Background/Foreground，因为模板里写死了
             Canvas.SetLeft(btn, node.CenterX - node.ButtonSize / 2);
             Canvas.SetTop(btn, node.CenterY - node.ButtonSize / 2);
@@ -648,31 +751,67 @@ namespace full_AI_tovch
         private void OnButtonRightButtonDown(object sender, MouseButtonEventArgs e)
         {
             if (e.RightButton != MouseButtonState.Pressed) return;
+
+            // 获取当前按钮对应的节点
+            Button btn = sender as Button;
+            MenuItemNode node = btn?.Tag as MenuItemNode; // 需要确保按钮的 Tag 指向节点
+                                                          // 如果 Tag 未存储节点，可改为从其他地方获取，这里假设你在创建按钮时已设置 Tag
+
+            // 如果节点未存 Tag，可在此指定：在 CreateButtonForNode 中添加 btn.Tag = node;
+            // 若尚未设置，临时从 UiButton 反向查找？建议确保 Tag 已设置。
+            // 检查是否为修饰键节点且有子节点
+            if (node != null && ModifierKeyConfig.IsModifierKey(node.Path) && node.Children.Count > 0)
+            {
+                isModifierRightClick = true;
+                isRightButtonPressed = true;  // 避免释放时检查失败
+                rightButtonDownTime = DateTime.Now;
+                e.Handled = true;
+                return; // 直接返回，不启动长按计时器
+            }
+
+            // 普通节点原有逻辑
             isRightButtonPressed = true;
             rightButtonDownTime = DateTime.Now;
-
             longPressTimer.Interval = TimeSpan.FromMilliseconds(InteractionConfig.LongPressThreshold);
             longPressTimer.Start();
-
-            e.Handled = true; // 阻止冒泡，防止触发窗口的全局右键事件
+            e.Handled = true;
         }
 
         // 按钮上右键释放：短按返回，长按结束删除
         private void OnButtonRightButtonUp(object sender, MouseButtonEventArgs e)
         {
             if (!isRightButtonPressed) return;
-            isRightButtonPressed = false;
 
+            // 处理修饰键右键
+            if (isModifierRightClick)
+            {
+                isModifierRightClick = false;
+                isRightButtonPressed = false;
+                // 短按判定（防止长时间按住被当成其他操作）
+                if ((DateTime.Now - rightButtonDownTime).TotalMilliseconds < InteractionConfig.LongPressThreshold)
+                {
+                    Button btn = sender as Button;
+                    MenuItemNode node = btn?.Tag as MenuItemNode;
+                    if (node != null && node.Children.Count > 0)
+                    {
+                        // 展开子节点
+                        NodeActionHandlers.ExpandChildren(node);
+                    }
+                }
+                e.Handled = true;
+                return;
+            }
+
+            // 普通节点原有逻辑
+            isRightButtonPressed = false;
             longPressTimer.Stop();
             bool wasDeleting = deleteRepeatTimer.IsEnabled;
             deleteRepeatTimer.Stop();
 
-            // 如果没触发过长按（不是删除状态），且右键持续时间很短 → 返回上一级
             if (!wasDeleting && (DateTime.Now - rightButtonDownTime).TotalMilliseconds < InteractionConfig.LongPressThreshold)
             {
                 GoBack();
             }
-
             e.Handled = true;
         }
 
@@ -695,10 +834,14 @@ namespace full_AI_tovch
         public const int GWL_EXSTYLE = -20;
         public const int WS_EX_NOACTIVATE = 0x08000000;
 
-        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        [DllImport("user32.dll")]
         public static extern int GetWindowLong(IntPtr hWnd, int nIndex);
 
-        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        [DllImport("user32.dll")]
         public static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
+
+        // 添加这一行：
+        [DllImport("user32.dll")]
+        public static extern short VkKeyScan(char ch);
     }
 }

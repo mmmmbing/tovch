@@ -13,31 +13,35 @@ namespace full_AI_tovch
         private static readonly Dictionary<string, List<string>> LabelMap
             = new Dictionary<string, List<string>>
             {
-                
+                { "1/0", new List<string> { "a-e", "A-E" } },
                 { "1/0/0", new List<string> { "a", "A" } },
                 { "1/0/1", new List<string> { "b", "B" } },
                 { "1/0/2", new List<string> { "c", "C" } },
                 { "1/0/3", new List<string> { "d", "D" } },
                 { "1/0/4", new List<string> { "e", "E" } },
 
+                { "1/1", new List<string> { "f-i", "F-I" } },
                 { "1/1/0", new List<string> { "f", "F" } },
                 { "1/1/1", new List<string> { "g", "G" } },
                 { "1/1/2", new List<string> { "h", "H" } },
                 { "1/1/3", new List<string> { "j", "J" } },
                 { "1/1/4", new List<string> { "i", "I" } },
 
+                { "1/2", new List<string> { "k-q", "K-Q" } },
                 { "1/2/0", new List<string> { "k", "K" } },
                 { "1/2/1", new List<string> { "m", "M" } },
                 { "1/2/2", new List<string> { "l", "L" } },
                 { "1/2/3", new List<string> { "n", "N" } },
                 { "1/2/4", new List<string> { "q", "O" } },
 
+                { "1/3", new List<string> { "p-t", "P-T" } },
                 { "1/3/0", new List<string> { "p", "P" } },
                 { "1/3/1", new List<string> { "q", "Q" } },
                 { "1/3/2", new List<string> { "r", "R" } },
                 { "1/3/3", new List<string> { "s", "S" } },
                 { "1/3/4", new List<string> { "t", "T" } },
 
+                { "1/4", new List<string> { "u-y", "U-Y" } },
                 { "1/4/0", new List<string> { "u", "U" } },
                 { "1/4/1", new List<string> { "v", "V" } },
                 { "1/4/2", new List<string> { "w", "W" } },
@@ -52,12 +56,12 @@ namespace full_AI_tovch
             = new Dictionary<string, Action<MenuItemNode>>
             {
                 // 对于 1/1 节点，仅在 CapsLock 按下时切换
-                { "1/1", (node) =>
-                    {
-                        if (System.Windows.Input.Keyboard.IsKeyToggled(System.Windows.Input.Key.CapsLock))
-                            node.SwitchToNextLabel();
-                    }
-                }
+                //{ "1/1", (node) =>
+                //    {
+                //        if (System.Windows.Input.Keyboard.IsKeyToggled(System.Windows.Input.Key.CapsLock))
+                //            node.SwitchToNextLabel();
+                //    }
+                //}
             };
 
         /// <summary>

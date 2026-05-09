@@ -76,7 +76,12 @@
     <Compile Include="InteractionConfig.cs" />
     <Compile Include="LabelConfig.cs" />
     <Compile Include="MenuActivation.cs" />
+    <Compile Include="ModifierKeyConfig.cs" />
+    <Compile Include="ModifierKeyState.cs" />
+    <Compile Include="NodeActionHandlers.cs" />
     <Compile Include="NodeController.cs" />
+    <Compile Include="NodeEventBinder.cs" />
+    <Compile Include="NodeEventTriggers.cs" />
     <Compile Include="TextInjection.cs" />
     <Page Include="MainWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
@@ -118,6 +123,10 @@
     <None Include="Properties\Settings.settings">
       <Generator>SettingsSingleFileGenerator</Generator>
       <LastGenOutput>Settings.Designer.cs</LastGenOutput>
+    </None>
+    <None Include="README.Designer.md" />
+    <None Include="README.md">
+      <SubType>Component</SubType>
     </None>
   </ItemGroup>
   <ItemGroup>

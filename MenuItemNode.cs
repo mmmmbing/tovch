@@ -28,6 +28,7 @@ namespace full_AI_tovch
         public double CenterX { get; set; }
         public double CenterY { get; set; }
 
+        public string Path { get; set; }
 
         /// <summary>所有标签，第一个为主标签，其余为隐藏标签</summary>
         public List<string> Labels { get; set; }

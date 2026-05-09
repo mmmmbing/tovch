@@ -9,31 +9,27 @@ namespace full_AI_tovch
     public static class NodeTree
     {
         // 根据配置递归构建完整节点树
-        public static List<MenuItemNode> BuildTree(NodeTreeConfig config, double selfTrackRadius = 0)
+        public static List<MenuItemNode> BuildTree(NodeTreeConfig config, double selfTrackRadius = 0, string parentPath = "")
         {
             if (config == null) return new List<MenuItemNode>();
 
-            // 本层节点排列使用的半径（优先用 config.TrackRadius，否则用父层传入的）
             double selfRadius = config.TrackRadius > 0 ? config.TrackRadius : selfTrackRadius;
-
             var nodes = new List<MenuItemNode>();
+
             for (int i = 0; i < config.VertexCount; i++)
             {
-                string label = (config.Labels != null && i < config.Labels.Count)
-                                ? config.Labels[i]
-                                : i.ToString();
-
+                string label = (config.Labels != null && i < config.Labels.Count) ? config.Labels[i] : i.ToString();
                 var node = new MenuItemNode
                 {
                     Text = label,
                     ButtonSize = config.ButtonSize,
-                    SelfTrackRadius = selfRadius      // 本层排列半径
+                    SelfTrackRadius = selfRadius,
+                    Path = string.IsNullOrEmpty(parentPath) ? i.ToString() : parentPath + "/" + i.ToString()  // 设置路径
                 };
 
-                // 检查当前索引是否配置了子层
                 if (config.ExpandableConfigs.TryGetValue(i, out var childConfig))
                 {
-                    node.Children = BuildTree(childConfig, config.TrackRadius);
+                    node.Children = BuildTree(childConfig, config.TrackRadius, node.Path); // 传递父路径
                 }
 
                 nodes.Add(node);
