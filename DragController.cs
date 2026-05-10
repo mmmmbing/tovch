@@ -16,7 +16,11 @@ namespace full_AI_tovch
         private static bool isDragging = false;
         private const double dragThreshold = 5.0;
 
-        private static Button highlightedButton;
+        // 当前拖拽过程中扫过的所有节点（包含源节点），用于最终组合注入
+        private static List<MenuItemNode> combinedNodes = new List<MenuItemNode>();
+
+        // 当前高亮的节点（绿色）集合，方便恢复外观
+        private static HashSet<Button> highlightedButtons = new HashSet<Button>();
 
         public static bool IsDragging => isDragging;
 
@@ -31,6 +35,10 @@ namespace full_AI_tovch
             dragSource = node;
             startMousePoint = mousePos;
             isDragging = false;
+
+            combinedNodes.Clear();
+            combinedNodes.Add(node);   // 源节点始终在第一位
+            highlightedButtons.Clear();
 
             button.Opacity = 0.5;
             dragGhost = null;
@@ -61,7 +69,8 @@ namespace full_AI_tovch
                 Canvas.SetTop(dragGhost, currentMousePos.Y - dragGhost.Height / 2);
             }
 
-            UpdateHighlight(currentMousePos, currentLevelNodes, dragGhost);
+            // 更新重叠节点集合
+            UpdateCombinedNodes(currentLevelNodes, dragGhost);
         }
 
         public static void EndDrag(Point releasePos, Canvas canvas, List<MenuItemNode> currentLevelNodes)
@@ -73,8 +82,8 @@ namespace full_AI_tovch
                 return;
             }
 
-            var combined = GetCombinedNodes(canvas, currentLevelNodes);
-            ExecuteComboInjection(combined);
+            // 使用最终编组集合执行注入
+            ExecuteComboInjection(new List<MenuItemNode>(combinedNodes));
             Cleanup(canvas);
         }
 
@@ -87,80 +96,56 @@ namespace full_AI_tovch
             }
         }
 
-        private static List<MenuItemNode> GetCombinedNodes(Canvas canvas, List<MenuItemNode> currentLevelNodes)
+        /// <summary>
+        /// 根据幽灵位置动态维护编组集合：新重叠的加入，不再重叠的移除（源节点除外）
+        /// </summary>
+        private static void UpdateCombinedNodes(List<MenuItemNode> currentLevelNodes, Button ghost)
         {
-            var result = new List<MenuItemNode>();
-            if (dragSource == null) return result;
-            result.Add(dragSource);
-
-            if (dragGhost == null) return result;
-
-            double ghostLeft = Canvas.GetLeft(dragGhost);
-            double ghostTop = Canvas.GetTop(dragGhost);
-            if (double.IsNaN(ghostLeft) || double.IsNaN(ghostTop)) return result;
-
-            Rect ghostRect = new Rect(ghostLeft, ghostTop, dragGhost.ActualWidth, dragGhost.ActualHeight);
+            if (ghost == null) return;
+            double ghostLeft = Canvas.GetLeft(ghost);
+            double ghostTop = Canvas.GetTop(ghost);
+            if (double.IsNaN(ghostLeft) || double.IsNaN(ghostTop)) return;
+            Rect ghostRect = new Rect(ghostLeft, ghostTop, ghost.ActualWidth, ghost.ActualHeight);
 
             foreach (var node in currentLevelNodes)
             {
                 if (node == dragSource) continue;
                 Button btn = node.UiButton;
-                if (btn == null) continue;
-                double left = Canvas.GetLeft(btn);
-                double top = Canvas.GetTop(btn);
-                if (double.IsNaN(left) || double.IsNaN(top)) continue;
-                Rect targetRect = new Rect(left, top, btn.ActualWidth, btn.ActualHeight);
-                if (ghostRect.IntersectsWith(targetRect))
-                    result.Add(node);
-            }
-            return result;
-        }
-
-        private static void UpdateHighlight(Point mousePos, List<MenuItemNode> currentLevelNodes, Button ghost)
-        {
-            Button newHighlight = null;
-
-            Rect ghostRect = Rect.Empty;
-            if (ghost != null && ghost.ActualWidth > 0)
-            {
-                double left = Canvas.GetLeft(ghost);
-                double top = Canvas.GetTop(ghost);
-                if (!double.IsNaN(left) && !double.IsNaN(top))
-                    ghostRect = new Rect(left, top, ghost.ActualWidth, ghost.ActualHeight);
-            }
-
-            foreach (var node in currentLevelNodes)
-            {
-                Button btn = node.UiButton;
-                if (btn == null || node == dragSource) continue;
-                if (node.DisplayText == CenterNodeConfig.Text) continue; // 忽略中心节点
+                if (btn == null || node.DisplayText == CenterNodeConfig.Text) continue;
 
                 double left = Canvas.GetLeft(btn);
                 double top = Canvas.GetTop(btn);
                 if (double.IsNaN(left) || double.IsNaN(top)) continue;
                 Rect targetRect = new Rect(left, top, btn.ActualWidth, btn.ActualHeight);
 
-                bool overlapping = ghostRect != Rect.Empty ? ghostRect.IntersectsWith(targetRect) : targetRect.Contains(mousePos);
+                bool overlapping = ghostRect.IntersectsWith(targetRect);
+
                 if (overlapping)
                 {
-                    newHighlight = btn;
-                    break;
+                    // 加入编组（若尚未加入）
+                    if (!combinedNodes.Contains(node))
+                        combinedNodes.Add(node);
+
+                    // 高亮该按钮（如果还没高亮）
+                    if (!highlightedButtons.Contains(btn))
+                    {
+                        btn.Background = Brushes.LightGreen;
+                        highlightedButtons.Add(btn);
+                    }
                 }
-            }
-
-            if (highlightedButton != null && highlightedButton != newHighlight)
-            {
-                UpdateNodeAppearance(highlightedButton);
-                highlightedButton = null;
-            }
-
-            if (newHighlight != null)
-            {
-                highlightedButton = newHighlight;
-                highlightedButton.Background = Brushes.LightGreen;
+                else
+                {
+                    // 离开该节点：恢复外观，但不从 combinedNodes 移除
+                    if (highlightedButtons.Contains(btn))
+                    {
+                        UpdateNodeAppearance(btn);
+                        highlightedButtons.Remove(btn);
+                    }
+                }
             }
         }
 
+        /// <summary>恢复单个按钮的外观（保留修饰键激活状态等）</summary>
         private static void UpdateNodeAppearance(Button btn)
         {
             if (btn?.Tag is MenuItemNode node)
@@ -293,7 +278,7 @@ namespace full_AI_tovch
 
         private static void Cleanup(Canvas canvas)
         {
-            // 移除幽灵副本
+            // 移除幽灵
             if (dragGhost != null)
             {
                 if (dragGhost.Parent is Panel parent)
@@ -303,11 +288,11 @@ namespace full_AI_tovch
 
             RestoreSource();
 
-            if (highlightedButton != null)
-            {
-                UpdateNodeAppearance(highlightedButton);
-                highlightedButton = null;
-            }
+            // 恢复所有被高亮过的按钮（可能已部分恢复，但无妨）
+            foreach (var btn in highlightedButtons)
+                UpdateNodeAppearance(btn);
+            highlightedButtons.Clear();
+            combinedNodes.Clear();
 
             isDragging = false;
         }
