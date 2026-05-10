@@ -197,6 +197,7 @@ namespace full_AI_tovch
                 exStyle |= NativeMethods.WS_EX_NOACTIVATE;
                 NativeMethods.SetWindowLong(handle, NativeMethods.GWL_EXSTYLE, exStyle);
 
+                this.PreviewMouseLeftButtonUp += OnWindowPreviewMouseLeftButtonUp;
 
                 // 初始化全局热键管理器
                 MenuActivation.Initialize(handle);
@@ -229,6 +230,15 @@ namespace full_AI_tovch
 
         }
 
+        private void OnWindowPreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            // 如果没有在拖拽，不处理
+            if (!DragController.IsDragging) return;
+
+            Point mousePos = e.GetPosition(MainCanvas);
+            DragController.EndDrag(mousePos, MainCanvas, currentLevelNodes);
+            e.Handled = true; // 阻止任何后续 Click 事件，避免误触发
+        }
 
         private void UpdateModifierStatusText(string text)
         {
@@ -818,15 +828,19 @@ namespace full_AI_tovch
 
         private void OnNodePreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
         {
+            // 没有拖拽源直接返回，保证单击正常
             if (DragController.DragSource == null) return;
+
+            bool wasDragging = DragController.IsDragging;
             Point mousePos = e.GetPosition(MainCanvas);
             DragController.EndDrag(mousePos, MainCanvas, currentLevelNodes);
 
-            // 只有真正拖动过才截断事件，否则让 Click 正常触发
-            if (DragController.IsDragging)
+            // 只有确实发生过拖拽才阻止继续触发 Click（避免注入重复或误操作）
+            if (wasDragging)
             {
                 e.Handled = true;
             }
+            // 如果未拖拽（只是点了一下），则 DragController 已经清理，并让 Click 顺利执行
         }
 
         //生成中心模板
