@@ -5,29 +5,63 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 
 namespace full_AI_tovch
 {
     public static class DragController
     {
+        // 原有字段
         private static MenuItemNode dragSource;
         private static Button dragGhost;
         private static Point startMousePoint;
         private static bool isDragging = false;
         private const double dragThreshold = 5.0;
+        private const double hoverTimeMs = 500;
 
-        // 当前拖拽过程中扫过的所有节点（包含源节点），用于最终组合注入
         private static List<MenuItemNode> combinedNodes = new List<MenuItemNode>();
-
-        // 当前高亮的节点（绿色）集合，方便恢复外观
         private static HashSet<Button> highlightedButtons = new HashSet<Button>();
 
+        // 悬停相关
+        private static DispatcherTimer hoverTimer;
+        private static MenuItemNode hoveredNode;
+        private static Point lastMousePos;
+
+        // 中心按钮悬停
+        private static Button registeredCenterButton;
+        private static bool isHoveringCenter;
+        private static DispatcherTimer centerHoverTimer;
+        //public static void RegisterCenterButton(Button btn) => registeredCenterButton = btn;
+        public static Action<MenuItemNode> ExpandAction { get; set; }
+        public static Action BackAction { get; set; }
+
         public static bool IsDragging => isDragging;
+        public static MenuItemNode DragSource => dragSource;
 
         [DllImport("user32.dll")]
         private static extern short VkKeyScan(char ch);
 
-        public static MenuItemNode DragSource => dragSource;
+        static DragController()
+        {
+            hoverTimer = new DispatcherTimer();
+            hoverTimer.Interval = TimeSpan.FromMilliseconds(hoverTimeMs);
+            hoverTimer.Tick += OnHoverTimerTick;
+
+            centerHoverTimer = new DispatcherTimer();
+            centerHoverTimer.Interval = TimeSpan.FromMilliseconds(hoverTimeMs);
+            centerHoverTimer.Tick += (s, e) =>
+            {
+                centerHoverTimer.Stop();
+                if (isHoveringCenter)
+                    BackAction?.Invoke();
+                isHoveringCenter = false;
+            };
+        }
+
+        public static void RegisterCenterButton(Button btn)
+        {
+            registeredCenterButton = btn;
+        }
 
         public static void StartDrag(MenuItemNode node, Button button, Point mousePos)
         {
@@ -37,16 +71,21 @@ namespace full_AI_tovch
             isDragging = false;
 
             combinedNodes.Clear();
-            combinedNodes.Add(node);   // 源节点始终在第一位
+            combinedNodes.Add(node);
             highlightedButtons.Clear();
 
             button.Opacity = 0.5;
             dragGhost = null;
+            hoveredNode = null;
+            hoverTimer.Stop();
+            isHoveringCenter = false;
+            centerHoverTimer.Stop();
         }
 
         public static void OnMouseMove(Point currentMousePos, Canvas canvas, List<MenuItemNode> currentLevelNodes)
         {
             if (dragSource == null) return;
+            lastMousePos = currentMousePos;
 
             if (!isDragging)
             {
@@ -69,8 +108,21 @@ namespace full_AI_tovch
                 Canvas.SetTop(dragGhost, currentMousePos.Y - dragGhost.Height / 2);
             }
 
-            // 更新重叠节点集合
-            UpdateCombinedNodes(currentLevelNodes, dragGhost);
+            // 计算幽灵矩形（供后续方法使用）
+            Rect ghostRect = Rect.Empty;
+            if (dragGhost != null)
+            {
+                double gl = Canvas.GetLeft(dragGhost);
+                double gt = Canvas.GetTop(dragGhost);
+                if (!double.IsNaN(gl) && !double.IsNaN(gt))
+                    ghostRect = new Rect(gl, gt, dragGhost.ActualWidth, dragGhost.ActualHeight);
+            }
+
+            // 更新编组与悬停
+            UpdateCombinedAndHover(currentLevelNodes, dragGhost, currentMousePos, ghostRect);
+
+            // 中心节点悬停检测
+            UpdateCenterHover(ghostRect);
         }
 
         public static void EndDrag(Point releasePos, Canvas canvas, List<MenuItemNode> currentLevelNodes)
@@ -82,7 +134,6 @@ namespace full_AI_tovch
                 return;
             }
 
-            // 使用最终编组集合执行注入
             ExecuteComboInjection(new List<MenuItemNode>(combinedNodes));
             Cleanup(canvas);
         }
@@ -90,62 +141,124 @@ namespace full_AI_tovch
         public static void CancelDrag(Canvas canvas)
         {
             if (dragSource != null)
-            {
-                RestoreSource();
                 Cleanup(canvas);
-            }
         }
 
-        /// <summary>
-        /// 根据幽灵位置动态维护编组集合：新重叠的加入，不再重叠的移除（源节点除外）
-        /// </summary>
-        private static void UpdateCombinedNodes(List<MenuItemNode> currentLevelNodes, Button ghost)
+        // ---------- 编组与悬停 ----------
+        private static void UpdateCombinedAndHover(List<MenuItemNode> currentLevelNodes, Button ghost, Point mousePos, Rect ghostRect)
         {
-            if (ghost == null) return;
-            double ghostLeft = Canvas.GetLeft(ghost);
-            double ghostTop = Canvas.GetTop(ghost);
-            if (double.IsNaN(ghostLeft) || double.IsNaN(ghostTop)) return;
-            Rect ghostRect = new Rect(ghostLeft, ghostTop, ghost.ActualWidth, ghost.ActualHeight);
+            if (ghost == null || ghostRect.IsEmpty) return;
 
+            MenuItemNode foundNode = null;
             foreach (var node in currentLevelNodes)
             {
                 if (node == dragSource) continue;
                 Button btn = node.UiButton;
-                if (btn == null || node.DisplayText == CenterNodeConfig.Text) continue;
-
+                if (btn == null) continue;
                 double left = Canvas.GetLeft(btn);
                 double top = Canvas.GetTop(btn);
                 if (double.IsNaN(left) || double.IsNaN(top)) continue;
                 Rect targetRect = new Rect(left, top, btn.ActualWidth, btn.ActualHeight);
-
-                bool overlapping = ghostRect.IntersectsWith(targetRect);
-
-                if (overlapping)
+                if (ghostRect.IntersectsWith(targetRect))
                 {
-                    // 加入编组（若尚未加入）
-                    if (!combinedNodes.Contains(node))
-                        combinedNodes.Add(node);
+                    foundNode = node;
+                    break;
+                }
+            }
 
-                    // 高亮该按钮（如果还没高亮）
-                    if (!highlightedButtons.Contains(btn))
+            // 处理叶子节点编组、悬停展开
+            if (foundNode != null)
+            {
+                bool isLeaf = foundNode.Children.Count == 0;
+                bool isMod = ModifierKeyConfig.IsModifierKey(foundNode.Path);
+                bool isExpandableNonMod = !isLeaf && !isMod;
+
+                if (!isExpandableNonMod)
+                {
+                    // 叶子或修饰键节点 → 立即编组
+                    if (!combinedNodes.Contains(foundNode))
+                        combinedNodes.Add(foundNode);
+                    if (!highlightedButtons.Contains(foundNode.UiButton))
                     {
-                        btn.Background = Brushes.LightGreen;
-                        highlightedButtons.Add(btn);
+                        foundNode.UiButton.Background = Brushes.LightGreen;
+                        highlightedButtons.Add(foundNode.UiButton);
+                    }
+                }
+
+                // 悬停动作（中心节点另由 UpdateCenterHover 处理，这里忽略中心）
+                if (isExpandableNonMod)
+                {
+                    if (hoveredNode != foundNode)
+                    {
+                        ResetHoverTimer();
+                        hoveredNode = foundNode;
+                        hoverTimer.Start();
                     }
                 }
                 else
                 {
-                    // 离开该节点：恢复外观，但不从 combinedNodes 移除
-                    if (highlightedButtons.Contains(btn))
-                    {
-                        UpdateNodeAppearance(btn);
-                        highlightedButtons.Remove(btn);
-                    }
+                    ResetHoverTimer();
+                }
+            }
+            else
+            {
+                ResetHoverTimer();
+            }
+
+            // 离开的高亮节点恢复外观
+            foreach (var btn in new List<Button>(highlightedButtons))
+            {
+                MenuItemNode node = btn.Tag as MenuItemNode;
+                if (node != foundNode)
+                {
+                    UpdateNodeAppearance(btn);
+                    highlightedButtons.Remove(btn);
                 }
             }
         }
 
-        /// <summary>恢复单个按钮的外观（保留修饰键激活状态等）</summary>
+        private static void UpdateCenterHover(Rect ghostRect)
+        {
+            if (registeredCenterButton == null || !registeredCenterButton.IsVisible) return;
+            double left = Canvas.GetLeft(registeredCenterButton);
+            double top = Canvas.GetTop(registeredCenterButton);
+            if (double.IsNaN(left) || double.IsNaN(top)) return;
+            Rect centerRect = new Rect(left, top, registeredCenterButton.ActualWidth, registeredCenterButton.ActualHeight);
+            bool overlapping = ghostRect.IntersectsWith(centerRect);
+            if (overlapping)
+            {
+                if (!isHoveringCenter)
+                {
+                    isHoveringCenter = true;
+                    centerHoverTimer.Start();
+                }
+            }
+            else
+            {
+                if (isHoveringCenter)
+                {
+                    isHoveringCenter = false;
+                    centerHoverTimer.Stop();
+                }
+            }
+        }
+
+        private static void ResetHoverTimer()
+        {
+            hoverTimer.Stop();
+            hoveredNode = null;
+        }
+
+        private static void OnHoverTimerTick(object sender, EventArgs e)
+        {
+            hoverTimer.Stop();
+            if (hoveredNode == null) return;
+            if (hoveredNode.DisplayText != CenterNodeConfig.Text)
+                ExpandAction?.Invoke(hoveredNode);
+            hoveredNode = null;
+        }
+
+        // ---------- 外观恢复 ----------
         private static void UpdateNodeAppearance(Button btn)
         {
             if (btn?.Tag is MenuItemNode node)
@@ -154,6 +267,7 @@ namespace full_AI_tovch
                 btn.Background = Brushes.LightBlue;
         }
 
+        // ---------- 幽灵创建 ----------
         private static Button CreateGhost(MenuItemNode node)
         {
             Color sourceColor = Colors.Gray;
@@ -188,6 +302,35 @@ namespace full_AI_tovch
             ghost.Template = template;
 
             return ghost;
+        }
+
+        // ---------- 组合注入 ----------
+        /// <summary>
+        /// 当菜单层级变化（展开或返回）后调用，将拖拽状态迁移到新的画布。
+        /// </summary>
+        public static void LevelChanged(Canvas newCanvas, List<MenuItemNode> newLevelNodes, Point currentMousePos)
+        {
+            if (dragSource == null || !isDragging) return;
+
+            // 如果幽灵存在于旧画布，先移除
+            if (dragGhost != null)
+            {
+                if (dragGhost.Parent is Panel oldParent)
+                    oldParent.Children.Remove(dragGhost);
+                // 添加到新画布
+                newCanvas.Children.Add(dragGhost);
+                // 更新位置为当前鼠标 (可以在下次 OnMouseMove 时更新，但这里先置)
+                Canvas.SetLeft(dragGhost, currentMousePos.X - dragGhost.Width / 2);
+                Canvas.SetTop(dragGhost, currentMousePos.Y - dragGhost.Height / 2);
+            }
+
+            // 重置悬停状态（新环境下重新检测）
+            ResetHoverTimer();
+            isHoveringCenter = false;
+            centerHoverTimer.Stop();
+
+            // 中心按钮引用无效，等待新中心按钮注册；由 MainWindow CreateCenterButton 调用 RegisterCenterButton
+            registeredCenterButton = null;
         }
 
         private static void ExecuteComboInjection(List<MenuItemNode> nodes)
@@ -278,22 +421,20 @@ namespace full_AI_tovch
 
         private static void Cleanup(Canvas canvas)
         {
-            // 移除幽灵
+            ResetHoverTimer();
+            isHoveringCenter = false;
+            centerHoverTimer.Stop();
             if (dragGhost != null)
             {
                 if (dragGhost.Parent is Panel parent)
                     parent.Children.Remove(dragGhost);
                 dragGhost = null;
             }
-
             RestoreSource();
-
-            // 恢复所有被高亮过的按钮（可能已部分恢复，但无妨）
             foreach (var btn in highlightedButtons)
                 UpdateNodeAppearance(btn);
             highlightedButtons.Clear();
             combinedNodes.Clear();
-
             isDragging = false;
         }
     }

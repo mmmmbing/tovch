@@ -76,6 +76,8 @@ namespace full_AI_tovch
         private Stack<Tuple<double, double>> centerHistory = new Stack<Tuple<double, double>>();
 
 
+        
+
         private static MainWindow _instance;
         private TextBlock statusIndicator;
         public MainWindow()
@@ -114,6 +116,13 @@ namespace full_AI_tovch
             {
                 rightButtonDownTime = DateTime.Now;
             };
+
+
+
+
+            DragController.ExpandAction = (node) => NodeActionHandlers.ExpandChildren(node);
+            DragController.BackAction = () => GoBack();
+
 
 
             NodeActionHandlers.UpdateModifierKeyAppearance = (node) =>
@@ -332,8 +341,8 @@ namespace full_AI_tovch
             //Point mousePos = Mouse.GetPosition(this);
             double centerX = mousePos.X;
             double centerY = mousePos.Y;
-            centerX = centerX - 237;
-            centerY = centerY + 27;
+            centerX = centerX- 237;
+            centerY = centerY+ 27;
 
 
 
@@ -391,8 +400,8 @@ namespace full_AI_tovch
             }
 
             //生成中心节点
-            currentCenterX = centerX - 237+268 -60+4;
-            currentCenterY = centerY + 27 -68 +20+3;
+            currentCenterX = centerX; /*- 237+268 -60+4; */
+            currentCenterY = centerY; /* + 27 -68 +20+3;*/
             CreateCenterButton(currentCenterX, currentCenterY);
 
             NodeEventBinder.Bind(rootNodes);
@@ -553,6 +562,7 @@ namespace full_AI_tovch
                 {
                     ClearCanvas();
                     CreateAndShowLevel(newLevelNodes);
+                    DragController.LevelChanged(MainCanvas, newLevelNodes, MousePositionHelper.GetCursorPosition());
                 });
                 // 注意：history 压入的是当前显示的层级，我们已在上面保存了中心，这里照常
                 history.Push(currentLevelNodes);
@@ -657,6 +667,7 @@ namespace full_AI_tovch
                 }
                 NodeEventBinder.Bind(previousLevel);
                 CreateCenterButton(currentCenterX, currentCenterY);
+                DragController.LevelChanged(MainCanvas, previousLevel, MousePositionHelper.GetCursorPosition());
             });
             currentLevelNodes = previousLevel;
         }
@@ -825,8 +836,9 @@ namespace full_AI_tovch
 
             // 先移除旧的中心按钮（如果有）
             if (centerButton != null && MainCanvas.Children.Contains(centerButton))
+            {
                 MainCanvas.Children.Remove(centerButton);
-
+            }
             var btn = new Button
             {
                 Width = CenterNodeConfig.ButtonSize,
@@ -894,6 +906,7 @@ namespace full_AI_tovch
             };
 
             centerButton = btn;
+            DragController.RegisterCenterButton(centerButton);
         }
 
 
