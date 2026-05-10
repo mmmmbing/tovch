@@ -73,6 +73,7 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </ApplicationDefinition>
+    <Compile Include="DragController.cs" />
     <Compile Include="InteractionConfig.cs" />
     <Compile Include="LabelConfig.cs" />
     <Compile Include="MenuActivation.cs" />

@@ -140,7 +140,7 @@ namespace full_AI_tovch
                 if (mods.HasFlag(ModifierKeys.Alt)) txt += " Alt";
                 if (mods.HasFlag(ModifierKeys.Windows)) txt += " Win";
                 UpdateModifierStatusText(txt.Trim());
-            };
+            }; 
 
 
             NodeActionHandlers.NavigateToChildren = NavigateToLevel;
@@ -749,7 +749,16 @@ namespace full_AI_tovch
             //btn.PreviewMouseRightButtonUp += OnButtonRightButtonUp;
             //btn.MouseLeave += OnButtonMouseLeave;
 
+            // 拖拽事件
+            btn.Tag = node; 
+            btn.PreviewMouseLeftButtonDown += OnNodePreviewMouseLeftButtonDown;
+            btn.PreviewMouseMove += OnNodePreviewMouseMove;
+            btn.PreviewMouseLeftButtonUp += OnNodePreviewMouseLeftButtonUp;
+
+
             node.UiButton = btn;
+            btn.Tag = node;
+
 
             return btn;
         }
@@ -775,6 +784,38 @@ namespace full_AI_tovch
             border.AppendChild(content);
             template.VisualTree = border;
             return template;
+        }
+
+
+        private void OnNodePreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            Button btn = sender as Button;
+            MenuItemNode node = btn?.Tag as MenuItemNode;
+            if (node == null) return;
+            if (node.DisplayText == CenterNodeConfig.Text) return;
+
+            Point mousePos = e.GetPosition(MainCanvas);
+            DragController.StartDrag(node, btn, mousePos);
+        }
+
+        private void OnNodePreviewMouseMove(object sender, MouseEventArgs e)
+        {
+            if (DragController.DragSource == null) return;
+            Point mousePos = e.GetPosition(MainCanvas);
+            DragController.OnMouseMove(mousePos, MainCanvas, currentLevelNodes);
+        }
+
+        private void OnNodePreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            if (DragController.DragSource == null) return;
+            Point mousePos = e.GetPosition(MainCanvas);
+            DragController.EndDrag(mousePos, MainCanvas, currentLevelNodes);
+
+            // 只有真正拖动过才截断事件，否则让 Click 正常触发
+            if (DragController.IsDragging)
+            {
+                e.Handled = true;
+            }
         }
 
         //生成中心模板
