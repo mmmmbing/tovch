@@ -11,27 +11,61 @@ namespace full_AI_tovch
         public static double GlobalShowDuration { get; set; } = 0.3;
         public static double GlobalHideDuration { get; set; } = 0.2;
 
-        // 为指定按钮播放出现动画
+        // 新增：交错延迟、缓动控制
+        public static TimeSpan StaggerDelay { get; set; } = TimeSpan.FromMilliseconds(30);
+        public static IEasingFunction ShowEase { get; set; } = new CircleEase { EasingMode = EasingMode.EaseOut };
+        public static IEasingFunction HideEase { get; set; } = new CircleEase { EasingMode = EasingMode.EaseIn };
+
+        // 原有无参出现动画（保持兼容）
         public static void PlayShowAnimation(this MenuItemNode node)
+        {
+            PlayShowAnimation(node, 0);
+        }
+
+        // 新重载：支持交错索引
+        public static void PlayShowAnimation(this MenuItemNode node, int index)
         {
             if (node.UiButton == null) return;
             double dur = node.ShowDurationOverride ?? GlobalShowDuration;
+            double stagger = StaggerDelay.TotalSeconds * index;
             var button = node.UiButton;
 
             button.Opacity = 0;
             button.RenderTransform = new ScaleTransform(0, 0);
+            button.RenderTransformOrigin = new Point(0.5, 0.5);
 
-            var opacityAnim = new DoubleAnimation(1, TimeSpan.FromSeconds(dur)) { EasingFunction = new QuadraticEase() };
-            var scaleAnimX = new DoubleAnimation(1, TimeSpan.FromSeconds(dur)) { EasingFunction = new BackEase() };
-            var scaleAnimY = new DoubleAnimation(1, TimeSpan.FromSeconds(dur)) { EasingFunction = new BackEase() };
+            var opacityAnim = new DoubleAnimation(1, TimeSpan.FromSeconds(dur))
+            {
+                BeginTime = TimeSpan.FromSeconds(stagger),
+                EasingFunction = ShowEase
+            };
+            var scaleAnimX = new DoubleAnimation(1, TimeSpan.FromSeconds(dur))
+            {
+                BeginTime = TimeSpan.FromSeconds(stagger),
+                EasingFunction = ShowEase
+            };
+            var scaleAnimY = new DoubleAnimation(1, TimeSpan.FromSeconds(dur))
+            {
+                BeginTime = TimeSpan.FromSeconds(stagger),
+                EasingFunction = ShowEase
+            };
 
             button.BeginAnimation(UIElement.OpacityProperty, opacityAnim);
-            button.RenderTransform.BeginAnimation(ScaleTransform.ScaleXProperty, scaleAnimX);
-            button.RenderTransform.BeginAnimation(ScaleTransform.ScaleYProperty, scaleAnimY);
+            if (button.RenderTransform is ScaleTransform st)
+            {
+                st.BeginAnimation(ScaleTransform.ScaleXProperty, scaleAnimX);
+                st.BeginAnimation(ScaleTransform.ScaleYProperty, scaleAnimY);
+            }
         }
 
-        // 播放消失动画，完成后执行回调（用于从Canvas移除）
+        // 原有无参消失动画
         public static void PlayHideAnimation(this MenuItemNode node, Action onCompleted)
+        {
+            PlayHideAnimation(node, onCompleted, 0);
+        }
+
+        // 新重载：支持交错索引
+        public static void PlayHideAnimation(this MenuItemNode node, Action onCompleted, int index)
         {
             if (node.UiButton == null)
             {
@@ -39,11 +73,24 @@ namespace full_AI_tovch
                 return;
             }
             double dur = node.HideDurationOverride ?? GlobalHideDuration;
+            double stagger = StaggerDelay.TotalSeconds * index;
             var button = node.UiButton;
 
-            var opacityAnim = new DoubleAnimation(0, TimeSpan.FromSeconds(dur));
-            var scaleAnimX = new DoubleAnimation(0, TimeSpan.FromSeconds(dur));
-            var scaleAnimY = new DoubleAnimation(0, TimeSpan.FromSeconds(dur));
+            var opacityAnim = new DoubleAnimation(0, TimeSpan.FromSeconds(dur))
+            {
+                BeginTime = TimeSpan.FromSeconds(stagger),
+                EasingFunction = HideEase
+            };
+            var scaleAnimX = new DoubleAnimation(0, TimeSpan.FromSeconds(dur))
+            {
+                BeginTime = TimeSpan.FromSeconds(stagger),
+                EasingFunction = HideEase
+            };
+            var scaleAnimY = new DoubleAnimation(0, TimeSpan.FromSeconds(dur))
+            {
+                BeginTime = TimeSpan.FromSeconds(stagger),
+                EasingFunction = HideEase
+            };
 
             opacityAnim.Completed += (s, e) => onCompleted?.Invoke();
 

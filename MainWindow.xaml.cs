@@ -197,7 +197,7 @@ namespace full_AI_tovch
                 exStyle |= NativeMethods.WS_EX_NOACTIVATE;
                 NativeMethods.SetWindowLong(handle, NativeMethods.GWL_EXSTYLE, exStyle);
 
-                this.PreviewMouseLeftButtonUp += OnWindowPreviewMouseLeftButtonUp;
+                //this.PreviewMouseLeftButtonUp += OnWindowPreviewMouseLeftButtonUp;
 
                 // 初始化全局热键管理器
                 MenuActivation.Initialize(handle);
@@ -230,14 +230,21 @@ namespace full_AI_tovch
 
         }
 
-        private void OnWindowPreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
-        {
-            // 如果没有在拖拽，不处理
-            if (!DragController.IsDragging) return;
+        //private void OnWindowPreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        //{
+        //    // 如果没有在拖拽，不处理
+        //    if (!DragController.IsDragging) return;
 
-            Point mousePos = e.GetPosition(MainCanvas);
-            DragController.EndDrag(mousePos, MainCanvas, currentLevelNodes);
-            e.Handled = true; // 阻止任何后续 Click 事件，避免误触发
+        //    Point mousePos = e.GetPosition(MainCanvas);
+        //    DragController.EndDrag(mousePos, MainCanvas, currentLevelNodes);
+        //    e.Handled = true; // 阻止任何后续 Click 事件，避免误触发
+        //}
+
+        public void RefreshCenterButton()
+        {
+            if (centerButton != null && MainCanvas.Children.Contains(centerButton))
+                MainCanvas.Children.Remove(centerButton);
+            CreateCenterButton(currentCenterX, currentCenterY);
         }
 
         private void UpdateModifierStatusText(string text)
@@ -406,7 +413,7 @@ namespace full_AI_tovch
                 node.UiButton = btn;
 
                 //临时不播放动画，直接可见
-                node.PlayShowAnimation();
+                node.PlayShowAnimation(i);
             }
 
             //生成中心节点
@@ -670,10 +677,11 @@ namespace full_AI_tovch
             PlayHideLevel(currentLevelNodes, () =>
             {
                 ClearCanvas();
-                foreach (var node in previousLevel)
+                for (int i = 0; i < previousLevel.Count; i++)
                 {
+                    var node = previousLevel[i];
                     CreateButtonForNode(node);
-                    node.PlayShowAnimation();
+                    node.PlayShowAnimation(i);
                 }
                 NodeEventBinder.Bind(previousLevel);
                 CreateCenterButton(currentCenterX, currentCenterY);
@@ -692,13 +700,14 @@ namespace full_AI_tovch
             }
 
             int remaining = nodes.Count;
-            foreach (var node in nodes)
+            for (int i = 0; i < nodes.Count; i++)
             {
+                var node = nodes[i];
                 node.PlayHideAnimation(() =>
                 {
                     if (--remaining == 0)
                         onAllCompleted?.Invoke();
-                });
+                }, i);   // 传入索引实现交错消失
             }
         }
 
@@ -715,10 +724,11 @@ namespace full_AI_tovch
         private void CreateAndShowLevel(List<MenuItemNode> nodes)
         {
             if (nodes == null) return;
-            foreach (var node in nodes)
+            for (int i = 0; i < nodes.Count; i++)
             {
+                var node = nodes[i];
                 CreateButtonForNode(node);
-                node.PlayShowAnimation();
+                node.PlayShowAnimation(i);
             }
             NodeEventBinder.Bind(nodes);
             CreateCenterButton(currentCenterX, currentCenterY);
@@ -828,19 +838,11 @@ namespace full_AI_tovch
 
         private void OnNodePreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
         {
-            // 没有拖拽源直接返回，保证单击正常
             if (DragController.DragSource == null) return;
-
             bool wasDragging = DragController.IsDragging;
             Point mousePos = e.GetPosition(MainCanvas);
             DragController.EndDrag(mousePos, MainCanvas, currentLevelNodes);
-
-            // 只有确实发生过拖拽才阻止继续触发 Click（避免注入重复或误操作）
-            if (wasDragging)
-            {
-                e.Handled = true;
-            }
-            // 如果未拖拽（只是点了一下），则 DragController 已经清理，并让 Click 顺利执行
+            if (wasDragging) e.Handled = true;
         }
 
         //生成中心模板
@@ -895,16 +897,29 @@ namespace full_AI_tovch
 
             btn.Click += (s, e) =>
             {
+                // 如果刚结束拖拽（300ms 内），忽略本次点击，防止异常注入
+                if ((DateTime.Now - DragController.LastDragEndTime).TotalMilliseconds < 300)
+                {
+                    e.Handled = true;
+                    return;
+                }
+
                 // 短按：如果未触发长按，则返回上一级
                 if (!isLongPressTriggered)
                     GoBack();
-                isLongPressTriggered = false; // 重置
+                isLongPressTriggered = false;
             };
 
             btn.PreviewMouseLeftButtonDown += (s, e) =>
             {
-                isLongPressTriggered = false;
-                longPressTimer.Start();
+                // 如果正在拖拽或刚结束拖拽，阻止中心按钮接收事件
+                if (DragController.IsDragging || (DateTime.Now - DragController.LastDragEndTime).TotalMilliseconds < 200)
+                    e.Handled = true;
+                else
+                {
+                    isLongPressTriggered = false;
+                    longPressTimer.Start();
+                }
             };
 
             btn.PreviewMouseLeftButtonUp += (s, e) =>
@@ -934,34 +949,34 @@ namespace full_AI_tovch
         }
 
 
-        private void OnButtonRightButtonDown(object sender, MouseButtonEventArgs e)
-        {
-            if (e.RightButton != MouseButtonState.Pressed) return;
+        //private void OnButtonRightButtonDown(object sender, MouseButtonEventArgs e)
+        //{
+        //    if (e.RightButton != MouseButtonState.Pressed) return;
 
-            // 获取当前按钮对应的节点
-            Button btn = sender as Button;
-            MenuItemNode node = btn?.Tag as MenuItemNode; // 需要确保按钮的 Tag 指向节点
-                                                          // 如果 Tag 未存储节点，可改为从其他地方获取，这里假设你在创建按钮时已设置 Tag
+        //    // 获取当前按钮对应的节点
+        //    Button btn = sender as Button;
+        //    MenuItemNode node = btn?.Tag as MenuItemNode; // 需要确保按钮的 Tag 指向节点
+        //                                                  // 如果 Tag 未存储节点，可改为从其他地方获取，这里假设你在创建按钮时已设置 Tag
 
-            // 如果节点未存 Tag，可在此指定：在 CreateButtonForNode 中添加 btn.Tag = node;
-            // 若尚未设置，临时从 UiButton 反向查找？建议确保 Tag 已设置。
-            // 检查是否为修饰键节点且有子节点
-            if (node != null && ModifierKeyConfig.IsModifierKey(node.Path) && node.Children.Count > 0)
-            {
-                isModifierRightClick = true;
-                isRightButtonPressed = true;  // 避免释放时检查失败
-                rightButtonDownTime = DateTime.Now;
-                e.Handled = true;
-                return; // 直接返回，不启动长按计时器
-            }
+        //    // 如果节点未存 Tag，可在此指定：在 CreateButtonForNode 中添加 btn.Tag = node;
+        //    // 若尚未设置，临时从 UiButton 反向查找？建议确保 Tag 已设置。
+        //    // 检查是否为修饰键节点且有子节点
+        //    if (node != null && ModifierKeyConfig.IsModifierKey(node.Path) && node.Children.Count > 0)
+        //    {
+        //        isModifierRightClick = true;
+        //        isRightButtonPressed = true;  // 避免释放时检查失败
+        //        rightButtonDownTime = DateTime.Now;
+        //        e.Handled = true;
+        //        return; // 直接返回，不启动长按计时器
+        //    }
 
-            // 普通节点原有逻辑
-            isRightButtonPressed = true;
-            rightButtonDownTime = DateTime.Now;
-            longPressTimer.Interval = TimeSpan.FromMilliseconds(InteractionConfig.LongPressThreshold);
-            longPressTimer.Start();
-            e.Handled = true;
-        }
+        //    // 普通节点原有逻辑
+        //    isRightButtonPressed = true;
+        //    rightButtonDownTime = DateTime.Now;
+        //    longPressTimer.Interval = TimeSpan.FromMilliseconds(InteractionConfig.LongPressThreshold);
+        //    longPressTimer.Start();
+        //    e.Handled = true;
+        //}
         public static MainWindow Instance => _instance;
         // 按钮上右键释放：短按返回，长按结束删除
         //private void OnButtonRightButtonUp(object sender, MouseButtonEventArgs e)

@@ -5,6 +5,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Threading;
 
 namespace full_AI_tovch
@@ -39,6 +40,10 @@ namespace full_AI_tovch
         [DllImport("user32.dll")]
         private static extern short VkKeyScan(char ch);
 
+        private static DateTime lastDragEndTime;
+        public static DateTime LastDragEndTime => lastDragEndTime;
+
+
         static DragController()
         {
             hoverTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(hoverTimeMs) };
@@ -56,6 +61,18 @@ namespace full_AI_tovch
 
         public static void StartDrag(MenuItemNode node, Button button, Point mousePos)
         {
+
+            if (node.Children.Count > 0 && !ModifierKeyConfig.IsModifierKey(node.Path))
+                return;
+
+            // 原有代码保持不变...
+            if (isDragging || dragSource != null)
+            {
+                if (button.Parent is Canvas c) CancelDrag(c);
+                else Cleanup(null);
+            }
+
+
             // 强制清理旧状态（幽灵残留等）
             if (isDragging || dragSource != null)
             {
@@ -85,16 +102,6 @@ namespace full_AI_tovch
         {
             if (dragSource == null) return;
 
-            // 暂停更新期间直接返回
-            if (suspendUpdate) return;
-
-            // 如果幽灵意外残留但未拖动，予以清除
-            if (!isDragging && dragGhost != null)
-            {
-                RemoveGhost();
-                return;
-            }
-
             if (!isDragging)
             {
                 if (Math.Abs(currentMousePos.X - startMousePoint.X) > dragThreshold ||
@@ -110,11 +117,15 @@ namespace full_AI_tovch
                 else return;
             }
 
+            // **无论是否暂停，幽灵都要跟随鼠标**（视觉流畅）
             if (dragGhost != null)
             {
                 Canvas.SetLeft(dragGhost, currentMousePos.X - dragGhost.Width / 2);
                 Canvas.SetTop(dragGhost, currentMousePos.Y - dragGhost.Height / 2);
             }
+
+            // 暂停检测时跳过碰撞，避免卡顿与错误组队
+            if (suspendUpdate) return;
 
             Rect ghostRect = GetGhostRect();
             UpdateCombinedAndHover(currentLevelNodes, ghostRect);
@@ -124,14 +135,13 @@ namespace full_AI_tovch
         public static void EndDrag(Point releasePos, Canvas canvas, List<MenuItemNode> currentLevelNodes)
         {
             if (dragSource == null) return;
-
-            bool wasDragging = isDragging;
-            if (wasDragging)
+            if (isDragging)
             {
                 ExecuteComboInjection(new List<MenuItemNode>(combinedNodes));
             }
-
-            Cleanup(canvas);
+            Cleanup(canvas, currentLevelNodes);
+            lastDragEndTime = DateTime.MinValue;               // 记录时间
+            MainWindow.Instance?.RefreshCenterButton();        // 强制重建
         }
 
         public static void CancelDrag(Canvas canvas) => Cleanup(canvas);
@@ -140,18 +150,19 @@ namespace full_AI_tovch
         {
             if (!isDragging || dragSource == null) return;
 
-            // 暂停检测，避免切换期间大量调用导致卡顿
-            suspendUpdate = true;
+            suspendUpdate = true;                        // 暂停检测，防止切换中大量计算
 
             if (dragGhost != null)
             {
                 if (dragGhost.Parent is Panel oldParent)
                     oldParent.Children.Remove(dragGhost);
                 newCanvas.Children.Add(dragGhost);
+                // 立即更新位置到当前鼠标
                 Canvas.SetLeft(dragGhost, currentMousePos.X - dragGhost.Width / 2);
                 Canvas.SetTop(dragGhost, currentMousePos.Y - dragGhost.Height / 2);
             }
 
+            // 重置所有悬停状态
             ResetHoverTimer();
             isHoveringCenter = false;
             centerHoverTimer.Stop();
@@ -159,9 +170,11 @@ namespace full_AI_tovch
 
             startMousePoint = currentMousePos;
 
-            // 下一帧恢复检测
-            newCanvas.Dispatcher.BeginInvoke(new Action(() => suspendUpdate = false),
-                DispatcherPriority.Loaded);
+            // 延迟到界面完全空闲后再恢复检测，给新层级布局充足时间
+            newCanvas.Dispatcher.BeginInvoke(new Action(() =>
+            {
+                suspendUpdate = false;
+            }), DispatcherPriority.ContextIdle);
         }
 
         // ---------- 内部方法 ----------
@@ -273,6 +286,9 @@ namespace full_AI_tovch
                 Focusable = false,
                 Opacity = 0.8
             };
+            ghost.Opacity = 0;
+            var fadeIn = new DoubleAnimation(1, TimeSpan.FromSeconds(0.15));
+            ghost.BeginAnimation(UIElement.OpacityProperty, fadeIn);
             var template = new ControlTemplate(typeof(Button));
             var border = new FrameworkElementFactory(typeof(Border));
             border.SetValue(Border.CornerRadiusProperty, new CornerRadius(node.ButtonSize / 2));
@@ -374,9 +390,13 @@ namespace full_AI_tovch
         private static void UpdateNodeAppearance(Button btn)
         {
             if (btn?.Tag is MenuItemNode node)
+            {
                 NodeActionHandlers.UpdateModifierKeyAppearance?.Invoke(node);
+            }
             else
+            {
                 btn.Background = Brushes.LightBlue;
+            }
         }
 
         private static void RestoreSource()
@@ -389,21 +409,44 @@ namespace full_AI_tovch
         {
             if (dragGhost != null)
             {
-                if (dragGhost.Parent is Panel p) p.Children.Remove(dragGhost);
-                dragGhost = null;
+                var fadeOut = new DoubleAnimation(0, TimeSpan.FromSeconds(0.1));
+                fadeOut.Completed += (s, e) =>
+                {
+                    if (dragGhost != null && dragGhost.Parent is Panel p)
+                        p.Children.Remove(dragGhost);
+                    dragGhost = null;
+                };
+                dragGhost.BeginAnimation(UIElement.OpacityProperty, fadeOut);
             }
         }
 
-        private static void Cleanup(Canvas canvas)
+        private static void Cleanup(Canvas canvas, List<MenuItemNode> currentLevelNodes = null)
         {
-            suspendUpdate = false;
             ResetHoverTimer();
             isHoveringCenter = false;
             centerHoverTimer.Stop();
             RemoveGhost();
             RestoreSource();
-            foreach (var btn in highlightedButtons) UpdateNodeAppearance(btn);
+
+            // 恢复高亮集合中的按钮
+            foreach (var btn in highlightedButtons)
+                UpdateNodeAppearance(btn);
             highlightedButtons.Clear();
+
+            // 额外遍历当前层级所有节点，强制重置外观（防止漏网之鱼）
+            if (currentLevelNodes != null)
+            {
+                foreach (var node in currentLevelNodes)
+                {
+                    if (node.UiButton != null)
+                    {
+                        node.UiButton.Opacity = 1.0;          // 强制恢复透明度
+                        UpdateNodeAppearance(node.UiButton);   // 恢复背景色
+                    }
+                    // 递归子节点（如果有显示的话，但当前层级通常不包含隐藏子节点）
+                }
+            }
+
             combinedNodes.Clear();
             isDragging = false;
         }
