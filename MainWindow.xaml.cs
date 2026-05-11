@@ -783,8 +783,8 @@ namespace full_AI_tovch
             // 拖拽事件
             btn.Tag = node; 
             btn.PreviewMouseLeftButtonDown += OnNodePreviewMouseLeftButtonDown;
-            btn.PreviewMouseMove += OnNodePreviewMouseMove;
-            btn.PreviewMouseLeftButtonUp += OnNodePreviewMouseLeftButtonUp;
+            //btn.PreviewMouseMove += OnNodePreviewMouseMove;
+            //btn.PreviewMouseLeftButtonUp += OnNodePreviewMouseLeftButtonUp;
 
 
             node.UiButton = btn;
@@ -822,11 +822,16 @@ namespace full_AI_tovch
         {
             Button btn = sender as Button;
             MenuItemNode node = btn?.Tag as MenuItemNode;
-            if (node == null) return;
-            if (node.DisplayText == CenterNodeConfig.Text) return;
+            if (node == null || node.DisplayText == CenterNodeConfig.Text) return;
 
-            Point mousePos = e.GetPosition(MainCanvas);
+            Point mousePos = e.GetPosition(this);
             DragController.StartDrag(node, btn, mousePos);
+
+            // 开始捕获窗口级鼠标事件
+            this.MouseMove += Window_MouseMoveForDrag;
+            this.PreviewMouseLeftButtonUp += Window_MouseUpForDrag;
+            this.CaptureMouse();   // 确保鼠标释放事件也能被捕获
+            e.Handled = true;
         }
 
         private void OnNodePreviewMouseMove(object sender, MouseEventArgs e)
@@ -936,6 +941,26 @@ namespace full_AI_tovch
 
             centerButton = btn;
             DragController.RegisterCenterButton(centerButton);
+        }
+
+        private void Window_MouseMoveForDrag(object sender, MouseEventArgs e)
+        {
+            if (DragController.DragSource == null) return;
+            Point mousePos = e.GetPosition(MainCanvas);   // 修正为画布坐标
+            DragController.OnMouseMove(mousePos, MainCanvas, currentLevelNodes);
+        }
+
+        private void Window_MouseUpForDrag(object sender, MouseButtonEventArgs e)
+        {
+            if (DragController.DragSource == null) return;
+            bool wasDragging = DragController.IsDragging;
+            Point mousePos = e.GetPosition(MainCanvas);   // 修正为画布坐标
+            DragController.EndDrag(mousePos, MainCanvas, currentLevelNodes);
+            if (wasDragging) e.Handled = true;
+
+            this.ReleaseMouseCapture();
+            this.MouseMove -= Window_MouseMoveForDrag;
+            this.PreviewMouseLeftButtonUp -= Window_MouseUpForDrag;
         }
 
 
