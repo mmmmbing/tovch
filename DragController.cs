@@ -140,11 +140,17 @@ namespace full_AI_tovch
                 ExecuteComboInjection(new List<MenuItemNode>(combinedNodes));
             }
             Cleanup(canvas, currentLevelNodes);
-            lastDragEndTime = DateTime.MinValue;               // 记录时间
-            MainWindow.Instance?.RefreshCenterButton();        // 强制重建
+            lastDragEndTime = DateTime.Now;             // 记录时间
+            //MainWindow.Instance?.RefreshCenterButton();        // 强制重建
         }
 
-        public static void CancelDrag(Canvas canvas) => Cleanup(canvas);
+        public static void CancelDrag(Canvas canvas)
+        {
+            if (canvas == null)
+                Cleanup(null);
+            else
+                Cleanup(canvas);
+        }
 
         public static void LevelChanged(Canvas newCanvas, List<MenuItemNode> newLevelNodes, Point currentMousePos)
         {

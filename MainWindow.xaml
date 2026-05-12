@@ -1,16 +1,13 @@
 ﻿<Window x:Class="full_AI_tovch.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="full_AI_tovch" 
         WindowStyle="None"
-        Opacity="0.5"
         AllowsTransparency="True"
         Background="Transparent"
         Topmost="True"
         ShowInTaskbar="False"
-        WindowState="Normal"
+        Focusable="False"
         ShowActivated="False"
-        Loaded="Window_Loaded"
-        MouseLeftButtonDown="Window_MouseLeftButtonDown" Height="500" Width="500">
-    <Canvas x:Name="MainCanvas" Background="Transparent" Margin="250,0,0,-31" />
+        IsHitTestVisible="True">
+    <Canvas x:Name="MainCanvas" Background="Transparent" />
 </Window>

@@ -84,6 +84,10 @@ namespace full_AI_tovch
         {
 
             InitializeComponent();
+
+            
+
+
             _instance = this;
 
             this.ShowInTaskbar = false;
@@ -314,7 +318,8 @@ namespace full_AI_tovch
                 MenuActivation.RegisterHideHotkey();
                 
                 SnapToMouse();
-                
+                this.Background = new SolidColorBrush(Colors.Red) { Opacity = 0.3 };
+
             }
             catch (Exception ex)
             {
@@ -339,6 +344,8 @@ namespace full_AI_tovch
 
         private void SnapToMouse()
         {
+            DragController.CancelDrag(MainCanvas);
+            this.ReleaseMouseCapture();
             // 1. 检查节点树
             if (rootNodes == null)
             {
@@ -387,7 +394,7 @@ namespace full_AI_tovch
                     Opacity = 1,                                     // 强行可见
                     RenderTransform = new ScaleTransform(1, 1),      // 正常比例
                     RenderTransformOrigin = new System.Windows.Point(0.5, 0.5),
-                    Background = new SolidColorBrush(Colors.Orange), // 橙色背景，绝对可见
+                    //Background = new SolidColorBrush(Colors.Orange), // 橙色背景，绝对可见
                     Foreground = new SolidColorBrush(Colors.Black),
                     FontSize = 14,
                     FontWeight = FontWeights.Bold,
@@ -396,10 +403,14 @@ namespace full_AI_tovch
 
 
                 btn.Tag = node;
+                btn.Click += (s, e) =>
+                {
+                    MessageBox.Show("按钮被点击了！");
+                };
                 //MessageBox.Show(node.CenterX.ToString() + " "+ node.CenterY.ToString() );
                 // 设置位置（已经考虑 ButtonSize 偏移）
-                Canvas.SetLeft(btn,node.CenterX -node.ButtonSize);
-                Canvas.SetTop(btn, node.CenterY -node.ButtonSize);
+                Canvas.SetLeft(btn, node.CenterX - node.ButtonSize / 2);
+                Canvas.SetTop(btn, node.CenterY - node.ButtonSize / 2);
                 //MessageBox.Show((node.CenterX - node.ButtonSize / 2).ToString() + " " + (node.CenterY - node.ButtonSize / 2).ToString());
                 //调试——输出坐标
                 double left = Canvas.GetLeft(btn);
@@ -421,14 +432,15 @@ namespace full_AI_tovch
             currentCenterY = centerY; /* + 27 -68 +20+3;*/
             CreateCenterButton(currentCenterX, currentCenterY);
 
-            NodeEventBinder.Bind(rootNodes);
+            //NodeEventBinder.Bind(rootNodes);
             // 再弹一下画布上的按钮总数
             currentLevelNodes = rootNodes;
 
             //        MessageBox.Show($"Canvas 子元素总数: {MainCanvas.Children.Count}, " +
             //$"其中 Button 数量: {MainCanvas.Children.OfType<Button>().Count()}");
+            //NodeActionHandlers.UpdateModifierStatusUI?.Invoke();
+            //NodeController.ConfigureAll(rootNodes);
             NodeActionHandlers.UpdateModifierStatusUI?.Invoke();
-            NodeController.ConfigureAll(rootNodes);
         }
 
         private void Window_Loaded(object sender, RoutedEventArgs e)
@@ -673,19 +685,26 @@ namespace full_AI_tovch
             }
             PlayHideLevel(currentLevelNodes, () =>
             {
-                ClearCanvas();
+                DragController.CancelDrag(MainCanvas);       // 清理可能残留的拖拽
+                this.ReleaseMouseCapture();
 
-                // ★ 关键修复：用当前中心点重新计算上一级节点的环形位置
+                ClearCanvas();
+                // 重新布局（确保位置正确）
                 LayoutNodesAroundPoint(previousLevel, currentCenterX, currentCenterY);
 
-                for (int i = 0; i < previousLevel.Count; i++)
+                foreach (var node in previousLevel)
                 {
-                    var node = previousLevel[i];
                     CreateButtonForNode(node);
-                    node.PlayShowAnimation(i);
+                    node.PlayShowAnimation(0);   // 无交错，保证立即显示
                 }
-                NodeController.ConfigureAll(previousLevel);
+
+                // 强制绑定事件（必须）
+                //NodeController.ConfigureAll(previousLevel);
+                // 重新创建中心按钮
                 CreateCenterButton(currentCenterX, currentCenterY);
+                // 刷新修饰键状态显示
+                NodeActionHandlers.UpdateModifierStatusUI?.Invoke();
+                // 通知拖拽控制器层级已变化
                 DragController.LevelChanged(MainCanvas, previousLevel, MousePositionHelper.GetCursorPosition());
             });
             currentLevelNodes = previousLevel;
@@ -723,6 +742,8 @@ namespace full_AI_tovch
         // 创建并显示一层节点（立即出现动画）
         private void CreateAndShowLevel(List<MenuItemNode> nodes)
         {
+            DragController.CancelDrag(MainCanvas);
+            this.ReleaseMouseCapture();
             if (nodes == null) return;
             for (int i = 0; i < nodes.Count; i++)
             {
@@ -730,10 +751,10 @@ namespace full_AI_tovch
                 CreateButtonForNode(node);
                 node.PlayShowAnimation(i);
             }
-            NodeEventBinder.Bind(nodes);
+            //NodeEventBinder.Bind(nodes);
             CreateCenterButton(currentCenterX, currentCenterY);
             NodeActionHandlers.UpdateModifierStatusUI?.Invoke();
-            NodeController.ConfigureAll(nodes);
+            //NodeController.ConfigureAll(nodes);
         }
 
         // 在指定中心点周围均匀排布节点，并存储坐标
@@ -761,9 +782,12 @@ namespace full_AI_tovch
                 Opacity = 1,
                 RenderTransform = new ScaleTransform(1, 1),
                 RenderTransformOrigin = new System.Windows.Point(0.5, 0.5),
-                Template = CreateCircleButtonTemplate(node.ButtonSize / 2)   // 直接设置
+                Background = Brushes.LightBlue,   // ★ 添加这行，确保按钮可命中
+                Template = CreateCircleButtonTemplate(node.ButtonSize / 2)
             };
             btn.Tag = node;
+            btn.Background = Brushes.Orange;   // 或其他颜色
+
             // 不设置 Background/Foreground，因为模板里写死了
             Canvas.SetLeft(btn, node.CenterX - node.ButtonSize / 2);
             Canvas.SetTop(btn, node.CenterY - node.ButtonSize / 2);
@@ -783,10 +807,33 @@ namespace full_AI_tovch
 
             // 拖拽事件
             btn.Tag = node; 
-            btn.PreviewMouseLeftButtonDown += OnNodePreviewMouseLeftButtonDown;
+            //btn.PreviewMouseLeftButtonDown += OnNodePreviewMouseLeftButtonDown;
             //btn.PreviewMouseMove += OnNodePreviewMouseMove;
             //btn.PreviewMouseLeftButtonUp += OnNodePreviewMouseLeftButtonUp;
+            // 直接绑定点击事件（绕过 ConfigureAll 的不稳定）
+            btn.Click += (s, e) =>
+            {
+                MessageBox.Show("clicked");
+                // 优先处理修饰键
+                if (ModifierKeyConfig.IsModifierKey(node.Path))
+                {
+                    NodeActionHandlers.HandleModifierClick(node);
+                    return;
+                }
 
+                if (node.Children.Count > 0)
+                {
+                    // 可展开节点：先布局子节点，再导航
+                    NodeController.PrepareChildrenLayout?.Invoke(node);
+                    NodeController.NavigateToChildren?.Invoke(node.Children);
+                }
+                else
+                {
+                    // 叶子节点：注入文本
+                    if (!string.IsNullOrEmpty(node.DisplayText))
+                        TextInjection.Send(node.DisplayText);
+                }
+            };
 
             node.UiButton = btn;
             btn.Tag = node;
@@ -801,56 +848,89 @@ namespace full_AI_tovch
 
             var border = new FrameworkElementFactory(typeof(Border));
             border.SetValue(Border.CornerRadiusProperty, new CornerRadius(cornerRadius));
-            // ▼ 关键修改：背景色不写死，而是绑定到按钮的 Background 属性
             border.SetValue(Border.BackgroundProperty, new TemplateBindingExtension(Button.BackgroundProperty));
             border.SetValue(Border.BorderBrushProperty, new TemplateBindingExtension(Button.BorderBrushProperty));
             border.SetValue(Border.BorderThicknessProperty, new TemplateBindingExtension(Button.BorderThicknessProperty));
             border.SetValue(Border.HorizontalAlignmentProperty, HorizontalAlignment.Stretch);
             border.SetValue(Border.VerticalAlignmentProperty, VerticalAlignment.Stretch);
+            // ★ 让边框不拦截鼠标
+            border.SetValue(UIElement.IsHitTestVisibleProperty, false);
 
             var content = new FrameworkElementFactory(typeof(ContentPresenter));
             content.SetValue(ContentPresenter.HorizontalAlignmentProperty, HorizontalAlignment.Center);
             content.SetValue(ContentPresenter.VerticalAlignmentProperty, VerticalAlignment.Center);
             content.SetValue(ContentPresenter.ContentProperty, new TemplateBindingExtension(Button.ContentProperty));
+            // ★ 让内容不拦截鼠标
+            content.SetValue(UIElement.IsHitTestVisibleProperty, false);
 
             border.AppendChild(content);
             template.VisualTree = border;
             return template;
         }
 
-
+        private void CleanupDragCapture()
+        {
+            this.ReleaseMouseCapture();
+            this.MouseMove -= Window_MouseMoveForDrag;
+            this.PreviewMouseLeftButtonUp -= Window_MouseUpForDrag;
+        }
         private void OnNodePreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
             Button btn = sender as Button;
             MenuItemNode node = btn?.Tag as MenuItemNode;
             if (node == null || node.DisplayText == CenterNodeConfig.Text) return;
 
-            Point mousePos = e.GetPosition(this);
+            // 记录拖拽起点（不启动拖拽，也不处理事件）
+            Point mousePos = e.GetPosition(MainCanvas);
             DragController.StartDrag(node, btn, mousePos);
-
-            // 开始捕获窗口级鼠标事件
-            this.MouseMove += Window_MouseMoveForDrag;
-            this.PreviewMouseLeftButtonUp += Window_MouseUpForDrag;
-            this.CaptureMouse();   // 确保鼠标释放事件也能被捕获
-            e.Handled = true;
+            // 注意：不设置 e.Handled = true，不捕获鼠标，让 Click 有机会触发
         }
 
         private void OnNodePreviewMouseMove(object sender, MouseEventArgs e)
         {
             if (DragController.DragSource == null) return;
+
             Point mousePos = e.GetPosition(MainCanvas);
-            DragController.OnMouseMove(mousePos, MainCanvas, currentLevelNodes);
+            // 如果还未开始拖拽，检测移动距离
+            if (!DragController.IsDragging)
+            {
+                // 此时由 DragController 内部判断阈值，若超过阈值则 IsDragging 变为 true
+                DragController.OnMouseMove(mousePos, MainCanvas, currentLevelNodes);
+                if (DragController.IsDragging)
+                {
+                    // 开始真正的拖拽，启动窗口级事件捕获
+                    this.MouseMove += Window_MouseMoveForDrag;
+                    this.PreviewMouseLeftButtonUp += Window_MouseUpForDrag;
+                    this.CaptureMouse();
+                    e.Handled = true;
+                }
+            }
+            else
+            {
+                // 已经拖拽中，继续更新（窗口级事件会处理，这里可留空）
+            }
         }
 
         private void OnNodePreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
         {
+            // 如果没有拖拽源，直接返回（让 Click 正常触发）
             if (DragController.DragSource == null) return;
-            bool wasDragging = DragController.IsDragging;
-            Point mousePos = e.GetPosition(MainCanvas);
-            DragController.EndDrag(mousePos, MainCanvas, currentLevelNodes);
-            if (wasDragging) e.Handled = true;
-        }
 
+            if (DragController.IsDragging)
+            {
+                // 拖拽结束
+                Point mousePos = e.GetPosition(MainCanvas);
+                DragController.EndDrag(mousePos, MainCanvas, currentLevelNodes);
+                CleanupDragCapture();
+                e.Handled = true; // 阻止 Click
+            }
+            else
+            {
+                // 未发生拖拽，重置状态，让 Click 触发
+                DragController.CancelDrag(MainCanvas);
+                // 不需要设置 e.Handled = false，默认会让 Click 执行
+            }
+        }
         //生成中心模板
         private void CreateCenterButton(double cx, double cy)
         {
@@ -955,13 +1035,10 @@ namespace full_AI_tovch
         {
             if (DragController.DragSource == null) return;
             bool wasDragging = DragController.IsDragging;
-            Point mousePos = e.GetPosition(MainCanvas);   // 修正为画布坐标
+            Point mousePos = e.GetPosition(MainCanvas);
             DragController.EndDrag(mousePos, MainCanvas, currentLevelNodes);
             if (wasDragging) e.Handled = true;
-
-            this.ReleaseMouseCapture();
-            this.MouseMove -= Window_MouseMoveForDrag;
-            this.PreviewMouseLeftButtonUp -= Window_MouseUpForDrag;
+            CleanupDragCapture();
         }
 
 
@@ -1046,6 +1123,7 @@ namespace full_AI_tovch
         {
             pendingCenterPoint = new Point(x, y);
         }
+
         // 鼠标离开按钮：如果正在长按删除，则停止
         //private void OnButtonMouseLeave(object sender, MouseEventArgs e)
         //{
