@@ -398,8 +398,8 @@ namespace full_AI_tovch
                 btn.Tag = node;
                 //MessageBox.Show(node.CenterX.ToString() + " "+ node.CenterY.ToString() );
                 // 设置位置（已经考虑 ButtonSize 偏移）
-                Canvas.SetLeft(btn,node.CenterX -node.ButtonSize);
-                Canvas.SetTop(btn, node.CenterY -node.ButtonSize);
+                Canvas.SetLeft(btn, node.CenterX - node.ButtonSize / 2);
+                Canvas.SetTop(btn, node.CenterY - node.ButtonSize / 2);
                 //MessageBox.Show((node.CenterX - node.ButtonSize / 2).ToString() + " " + (node.CenterY - node.ButtonSize / 2).ToString());
                 //调试——输出坐标
                 double left = Canvas.GetLeft(btn);
