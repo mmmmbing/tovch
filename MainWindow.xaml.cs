@@ -441,6 +441,7 @@ namespace full_AI_tovch
             //NodeActionHandlers.UpdateModifierStatusUI?.Invoke();
             //NodeController.ConfigureAll(rootNodes);
             NodeActionHandlers.UpdateModifierStatusUI?.Invoke();
+            NodeController.ConfigureAll(rootNodes);
         }
 
         private void Window_Loaded(object sender, RoutedEventArgs e)
@@ -450,8 +451,8 @@ namespace full_AI_tovch
             {
                 TrackRadius = 100,
                 ButtonSize = 50,
-                VertexCount = 5,
-                Labels = new List<string> { "num","charaters", "special", "function" , "Sym" },
+                VertexCount = 4,
+                Labels = new List<string> { "num", "charaters", "special", "Sym" },
                 ExpandableConfigs = new Dictionary<int, NodeTreeConfig>
     {
         { 0, new NodeTreeConfig    // 颜色节点展开出 3 个子项
@@ -521,11 +522,22 @@ namespace full_AI_tovch
             {
                 TrackRadius = 100,
                 ButtonSize = 50,
-                VertexCount = 10,
-                Labels = new List<string> { "!", "@","#","$","%","^","&","*","(",")" },
+                VertexCount = 11,
+                Labels = new List<string> { "!", "@","#","$","%","^","&","*","(",")","Tab" },
+                //ExpandableConfigs = new Dictionary<int, NodeTreeConfig>
+                //{
+                //    { 0, new NodeTreeConfig   // “跑”展开
+                //        {
+                //            TrackRadius = 40,
+                //            ButtonSize = 25,
+                //            VertexCount = 2,
+                //            Labels = new List<string> { "快跑", "慢跑" }
+                //        }
+                //    }
+                //}
             }
         },
-        { 4, new NodeTreeConfig    // 动作节点展开出 2 个子项，且子项还能继续展开
+        { 3, new NodeTreeConfig    // 动作节点展开出 2 个子项，且子项还能继续展开
             {
                 TrackRadius = 100,
                 ButtonSize = 50,
@@ -533,20 +545,12 @@ namespace full_AI_tovch
                 Labels = new List<string> { "Win", "Shift","Ctrl","CapsLk","Alt" },
                 ExpandableConfigs = new Dictionary<int, NodeTreeConfig>
                 {
-                    { 0, new NodeTreeConfig   
+                    { 0, new NodeTreeConfig   // “跑”展开
                         {
-                            TrackRadius = 100,
+                            TrackRadius = 40,
                             ButtonSize = 25,
-                            VertexCount = 4,
-                            Labels = new List<string> { "D", "G" ,"S" ,"N" }
-                        }
-                    },
-                    { 2, new NodeTreeConfig   
-                        {
-                            TrackRadius = 100,
-                            ButtonSize = 25,
-                            VertexCount = 4,
-                            Labels = new List<string> { "V", "C" ,"A" ,"X" }
+                            VertexCount = 2,
+                            Labels = new List<string> { "快跑", "慢跑" }
                         }
                     }
                 }
@@ -685,22 +689,17 @@ namespace full_AI_tovch
             }
             PlayHideLevel(currentLevelNodes, () =>
             {
-                DragController.CancelDrag(MainCanvas);       // 清理可能残留的拖拽
-                this.ReleaseMouseCapture();
-
                 ClearCanvas();
-                // 重新布局（确保位置正确）
+
+                // ★ 关键修复：用当前中心点重新计算上一级节点的环形位置
                 LayoutNodesAroundPoint(previousLevel, currentCenterX, currentCenterY);
 
-                foreach (var node in previousLevel)
+                for (int i = 0; i < previousLevel.Count; i++)
                 {
                     CreateButtonForNode(node);
                     node.PlayShowAnimation(0);   // 无交错，保证立即显示
                 }
-
-                // 强制绑定事件（必须）
-                //NodeController.ConfigureAll(previousLevel);
-                // 重新创建中心按钮
+                NodeController.ConfigureAll(previousLevel);
                 CreateCenterButton(currentCenterX, currentCenterY);
                 // 刷新修饰键状态显示
                 NodeActionHandlers.UpdateModifierStatusUI?.Invoke();
@@ -709,6 +708,7 @@ namespace full_AI_tovch
             });
             currentLevelNodes = previousLevel;
         }
+
         // 播放层级消失动画（所有节点）
         private void PlayHideLevel(List<MenuItemNode> nodes, Action onAllCompleted)
         {
@@ -754,7 +754,7 @@ namespace full_AI_tovch
             //NodeEventBinder.Bind(nodes);
             CreateCenterButton(currentCenterX, currentCenterY);
             NodeActionHandlers.UpdateModifierStatusUI?.Invoke();
-            //NodeController.ConfigureAll(nodes);
+            NodeController.ConfigureAll(nodes);
         }
 
         // 在指定中心点周围均匀排布节点，并存储坐标
