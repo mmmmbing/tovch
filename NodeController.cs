@@ -97,15 +97,11 @@ namespace full_AI_tovch
             MenuItemNode node = btn?.Tag as MenuItemNode;
             if (node == null) return;
 
-            if (ModifierKeyConfig.IsModifierKey(node.Path))
-            {
-                NodeActionHandlers.HandleModifierClick(node);
-                return;
-            }
-
             if (node.Children.Count > 0)
             {
+                // *** 先布局子节点（以父节点为中心） ***
                 PrepareChildrenLayout?.Invoke(node);
+                // 然后导航到子层
                 NavigateToChildren?.Invoke(node.Children);
             }
             else
