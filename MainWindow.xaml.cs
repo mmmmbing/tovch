@@ -1040,7 +1040,7 @@ namespace full_AI_tovch
         }
         private void PerformInlineExpand(MenuItemNode parent)
         {
-            Debug.WriteLine($"[Main] PerformInlineExpand 被调用，节点: {parent?.DisplayText}, 当前内联栈: {inlineExpandStack.Count}");
+         
             if (parent == null || parent.Children.Count == 0) return;
 
             // 如果已经处于内联展开状态，先恢复
@@ -1114,14 +1114,15 @@ namespace full_AI_tovch
                 MenuItemNode node = btn?.Tag as MenuItemNode;
                 if (node != null)
                 {
-                    // 启动拖拽前确保节点可拖拽（可选：允许所有节点）
-                    DragController.StartDrag(node, btn, dragStartPoint);
-                    dragCaptureStarted = true;
-                    // 启动窗口级事件捕获
-                    this.MouseMove += Window_MouseMoveForDrag;
-                    this.PreviewMouseLeftButtonUp += Window_MouseUpForDrag;
-                    this.CaptureMouse();
-                    e.Handled = true;
+                    // 仅当成功启动拖拽时才捕获鼠标和设置标志
+                    if (DragController.StartDrag(node, btn, dragStartPoint))
+                    {
+                        dragCaptureStarted = true;
+                        this.MouseMove += Window_MouseMoveForDrag;
+                        this.PreviewMouseLeftButtonUp += Window_MouseUpForDrag;
+                        this.CaptureMouse();
+                        e.Handled = true;
+                    }
                 }
             }
         }
@@ -1148,15 +1149,14 @@ namespace full_AI_tovch
 
             if (dx > DragController.DragThreshold || dy > DragController.DragThreshold)
             {
-                // 启动正式拖拽
-                isDragActive = true;
-                isPotentialDrag = false;
-                DragController.StartDrag(node, btn, dragStartPoint);
-                // 拖拽过程中仍然保持鼠标捕获，以便后续的 Move 和 Up
-                // 不需要再添加窗口级事件，因为按钮已经捕获了鼠标
+                if (DragController.StartDrag(node, btn, dragStartPoint))
+                {
+                    isDragActive = true;
+                    isPotentialDrag = false;
+                    // 不需要额外捕获鼠标，因为按钮已经捕获
+                }
             }
         }
-
         private void OnNodeMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
         {
             Button btn = sender as Button;

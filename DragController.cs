@@ -79,18 +79,17 @@ namespace full_AI_tovch
 
         public static void RegisterCenterButton(Button btn) => registeredCenterButton = btn;
 
-        public static void StartDrag(MenuItemNode node, Button button, Point mousePos)
+        public static bool StartDrag(MenuItemNode node, Button button, Point mousePos)
         {
-            // 注释掉禁止普通可展开节点拖拽的限制，如果你想所有节点都可拖拽。
-            // 如果只想叶子节点和修饰键可拖拽，保留此句。
+            // 禁止拖拽有子节点且非修饰键的节点
             if (node.Children.Count > 0 && !ModifierKeyConfig.IsModifierKey(node.Path))
-                return;
+                return false;
 
             // 强制清理旧的一次，避免残留
             if (isDragging || dragSource != null)
                 CancelDrag(button.Parent as Canvas);
 
-            if (node == null || button == null) return;
+            if (node == null || button == null) return false;
 
             dragSource = node;
             startMousePoint = mousePos;
@@ -107,6 +106,8 @@ namespace full_AI_tovch
             hoverTimer.Stop();
             isHoveringCenter = false;
             centerHoverTimer.Stop();
+
+            return true;
         }
 
         public static void OnMouseMove(Point currentMousePos, Canvas canvas, List<MenuItemNode> currentLevelNodes)
@@ -232,12 +233,10 @@ namespace full_AI_tovch
             if (foundNode != null && foundNode.ExpandStyle == ExpandStyle.Inline && foundNode.InlineOnRightClick)
             {
                 rightClickInlineHoverNode = foundNode;
-                Debug.WriteLine($"[Drag] 悬停右键内联节点: {foundNode.DisplayText}");
             }
             else
             {
                 if (rightClickInlineHoverNode != null)
-                    Debug.WriteLine($"[Drag] 离开右键内联节点: {rightClickInlineHoverNode.DisplayText}");
                 rightClickInlineHoverNode = null;
             }
             if (foundNode != null)
