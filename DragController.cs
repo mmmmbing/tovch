@@ -12,7 +12,7 @@ namespace full_AI_tovch
 {
     public static class DragController
     {
-        private const double dragThreshold = 8.0;
+        public const double DragThreshold = 2.0;
         private const double hoverTimeMs = 500;
 
         private static MenuItemNode dragSource;
@@ -61,26 +61,17 @@ namespace full_AI_tovch
 
         public static void StartDrag(MenuItemNode node, Button button, Point mousePos)
         {
-
+            // 注释掉禁止普通可展开节点拖拽的限制，如果你想所有节点都可拖拽。
+            // 如果只想叶子节点和修饰键可拖拽，保留此句。
             if (node.Children.Count > 0 && !ModifierKeyConfig.IsModifierKey(node.Path))
                 return;
 
-            // 原有代码保持不变...
+            // 强制清理旧的一次，避免残留
             if (isDragging || dragSource != null)
-            {
-                if (button.Parent is Canvas c) CancelDrag(c);
-                else Cleanup(null);
-            }
-
-
-            // 强制清理旧状态（幽灵残留等）
-            if (isDragging || dragSource != null)
-            {
-                if (button.Parent is Canvas c) CancelDrag(c);
-                else Cleanup(null);
-            }
+                CancelDrag(button.Parent as Canvas);
 
             if (node == null || button == null) return;
+
             dragSource = node;
             startMousePoint = mousePos;
             isDragging = false;
@@ -104,8 +95,8 @@ namespace full_AI_tovch
 
             if (!isDragging)
             {
-                if (Math.Abs(currentMousePos.X - startMousePoint.X) > dragThreshold ||
-                    Math.Abs(currentMousePos.Y - startMousePoint.Y) > dragThreshold)
+                if (Math.Abs(currentMousePos.X - startMousePoint.X) > DragController.DragThreshold ||
+                    Math.Abs(currentMousePos.Y - startMousePoint.Y) > DragController.DragThreshold)
                 {
                     isDragging = true;
                     if (dragGhost == null)
@@ -141,10 +132,13 @@ namespace full_AI_tovch
             }
             Cleanup(canvas, currentLevelNodes);
             lastDragEndTime = DateTime.MinValue;               // 记录时间
-            MainWindow.Instance?.RefreshCenterButton();        // 强制重建
+            //MainWindow.Instance?.RefreshCenterButton();        // 强制重建
         }
 
-        public static void CancelDrag(Canvas canvas) => Cleanup(canvas);
+        public static void CancelDrag(Canvas canvas)
+        {
+            Cleanup(canvas);
+        }
 
         public static void LevelChanged(Canvas newCanvas, List<MenuItemNode> newLevelNodes, Point currentMousePos)
         {
