@@ -98,6 +98,13 @@ namespace full_AI_tovch
                 System.Diagnostics.Debug.WriteLine($"SendInput 失败，错误码: {err}");
             }
         }
+        [DllImport("user32.dll")]
+        private static extern short VkKeyScan(char ch);
+        public static Key CharToKey(char c)
+        {
+            short vk = VkKeyScan(c);
+            return KeyInterop.KeyFromVirtualKey(vk & 0xFF);
+        }
 
         // ---------- 辅助方法 ----------
         private static void AddKey(List<INPUT> inputs, ushort vk, bool isUp)

@@ -42,77 +42,90 @@ namespace full_AI_tovch
         {
             if (node == null || string.IsNullOrEmpty(node.DisplayText)) return;
 
-            // ---------- 处理功能键 (Tab, Enter 等) ----------
-            if (specialKeys.Contains(node.DisplayText))
-            {
-                ModifierKeys currentMods = ModifierKeyState.GetCurrentModifierKeys();
+            // 定义所有功能键（不区分大小写）
+            var functionKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    {
+        "Tab", "Enter", "Space", "Backspace", "Delete", "Insert",
+        "Home", "End", "Up", "Down", "Left", "Right", "Escape"
+    };
 
-                if (currentMods == ModifierKeys.None)
+            string text = node.DisplayText;
+            bool isFunctionKey = functionKeys.Contains(text);
+
+            // 获取当前修饰键状态
+            ModifierKeys currentMods = ModifierKeyState.GetCurrentModifierKeys();
+            bool capsActive = ModifierKeyState.CapsLockActive;
+
+            // 功能键处理
+            if (isFunctionKey)
+            {
+                // 将文本转换为 Key 枚举
+                Key key = Key.None;
+                switch (text.ToLowerInvariant())
                 {
-                    // 无修饰键：用 SendKeys 发送功能键 (稳定)
-                    string sendKeyText;
-                    switch (node.DisplayText.ToLowerInvariant())
-                    {
-                        case "Tab": sendKeyText = "{TAB}"; break;
-                        case "enter": sendKeyText = "{ENTER}"; break;
-                        case "backspace": sendKeyText = "{BACKSPACE}"; break;
-                        case "delete": sendKeyText = "{DELETE}"; break;
-                        case "escape": sendKeyText = "{ESC}"; break;
-                        case "space": sendKeyText = " "; break;
-                        case "up": sendKeyText = "{UP}"; break;
-                        case "down": sendKeyText = "{DOWN}"; break;
-                        case "left": sendKeyText = "{LEFT}"; break;
-                        case "right": sendKeyText = "{RIGHT}"; break;
-                        default: sendKeyText = "{" + node.DisplayText + "}"; break;
-                    }
-                    System.Windows.Forms.SendKeys.SendWait(sendKeyText);
+                    case "tab": key = Key.Tab; break;
+                    case "enter": key = Key.Enter; break;
+                    case "space": key = Key.Space; break;
+                    case "backspace": key = Key.Back; break;
+                    case "delete": key = Key.Delete; break;
+                    case "insert": key = Key.Insert; break;
+                    case "home": key = Key.Home; break;
+                    case "end": key = Key.End; break;
+                    case "up": key = Key.Up; break;
+                    case "down": key = Key.Down; break;
+                    case "left": key = Key.Left; break;
+                    case "right": key = Key.Right; break;
+                    case "escape": key = Key.Escape; break;
+                    default: key = Key.None; break;
+                }
+
+                if (key != Key.None)
+                {
+                    // 发送按键（若当前有修饰键则组合，否则单独发送）
+                    TextInjection.SendKey(key, currentMods);
                 }
                 else
                 {
-                    // 有修饰键：用 SendInput 发送组合键
-                    if (Enum.TryParse<Key>(node.DisplayText, true, out Key key))
-                        TextInjection.SendKey(key, currentMods);
-                    else
-                        System.Windows.Forms.SendKeys.SendWait("{" + node.DisplayText + "}");
+                    // 降级：使用 SendKeys
+                    string sendKey = "{" + text + "}";
+                    System.Windows.Forms.SendKeys.SendWait(sendKey);
                 }
 
+                // 发送后清除修饰键（如果需要）
                 if (ModifierKeyState.AutoClearAfterSend)
                     ModifierKeyState.ClearModifiers();
                 UpdateModifierStatusUI?.Invoke();
                 return;
             }
 
-            // ---------- 普通文本节点 ----------
-            ModifierKeys mods = ModifierKeyState.GetCurrentModifierKeys();
-            bool caps = ModifierKeyState.CapsLockActive;
-
-            // CapsLock 处理
-            if (caps && node.DisplayText.Length == 1 && char.IsLetter(node.DisplayText[0]))
+            // 普通文本处理（保留原有逻辑）
+            if (capsActive && text.Length == 1 && char.IsLetter(text[0]))
             {
-                char upper = char.ToUpper(node.DisplayText[0]);
+                char upper = char.ToUpper(text[0]);
                 TextInjection.Send(upper.ToString());
             }
-            else if (mods != ModifierKeys.None)
+            else if (currentMods != ModifierKeys.None)
             {
-                Key key = KeyInterop.KeyFromVirtualKey(0);
-                if (node.DisplayText.Length == 1)
+                // 尝试作为单字符键发送组合键
+                Key key = Key.None;
+                if (text.Length == 1)
                 {
-                    short vkScan = NativeMethods.VkKeyScan(node.DisplayText[0]);
+                    short vkScan = NativeMethods.VkKeyScan(text[0]);
                     key = KeyInterop.KeyFromVirtualKey((int)(vkScan & 0xFF));
                 }
                 else
                 {
-                    Enum.TryParse(node.DisplayText, true, out key);
+                    Enum.TryParse(text, true, out key);
                 }
 
                 if (key != Key.None)
-                    TextInjection.SendKey(key, mods);
+                    TextInjection.SendKey(key, currentMods);
                 else
-                    TextInjection.Send(node.DisplayText);
+                    TextInjection.Send(text);
             }
             else
             {
-                TextInjection.Send(node.DisplayText);
+                TextInjection.Send(text);
             }
 
             if (ModifierKeyState.AutoClearAfterSend)

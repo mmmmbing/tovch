@@ -410,8 +410,8 @@ namespace full_AI_tovch
             Point mousePos = MousePositionHelper.GetCursorPosition();
             double centerX = mousePos.X;
             double centerY = mousePos.Y;
-            centerX = centerX - 237;
-            centerY = centerY + 27;
+            centerX = centerX - 350;
+            centerY = centerY -50;
             ResetNavigationState();
             ClearCanvas();
             LayoutNodesAroundPoint(rootNodes, centerX, centerY);
@@ -432,6 +432,7 @@ namespace full_AI_tovch
             //NodeEventBinder.Bind(rootNodes);
             // 再弹一下画布上的按钮总数
             currentLevelNodes = rootNodes;
+            CreateCenterButton(currentCenterX, currentCenterY);
             NodeActionHandlers.UpdateModifierStatusUI?.Invoke();
             //NodeController.ConfigureAll(rootNodes);
 
@@ -447,8 +448,8 @@ namespace full_AI_tovch
             {
                 TrackRadius = 100,
                 ButtonSize = 50,
-                VertexCount = 4,
-                Labels = new List<string> { "num", "charaters", "special", "Sym" },
+                VertexCount = 5,
+                Labels = new List<string> { "num", "chara", "spcl","fun", "Sym" },
                 ExpandableConfigs = new Dictionary<int, NodeTreeConfig>
     {
         { 0, new NodeTreeConfig    // 颜色节点展开出 3 个子项
@@ -466,74 +467,25 @@ namespace full_AI_tovch
                 ButtonSize = 40,
                 VertexCount = 26,
                 Labels = new List<string> { "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "N", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z" },
-                //ExpandableConfigs = new Dictionary<int, NodeTreeConfig>
-                //{
-                //     { 0, new NodeTreeConfig   
-                //        {
-                //            TrackRadius = 100,
-                //            ButtonSize = 50,
-                //            VertexCount = 5,
-                //            Labels = new List<string> { "A", "B","C","D","E" }
-                //        }
-                //    },
-                //    { 1, new NodeTreeConfig  
-                //        {
-                //            TrackRadius = 100,
-                //            ButtonSize = 50,
-                //            VertexCount = 5,
-                //            Labels = new List<string> { "F", "G","H","I","J" }
-                //        }
-                //    },
-                //    { 2, new NodeTreeConfig  
-                //        {
-                //            TrackRadius = 100,
-                //            ButtonSize = 50,
-                //            VertexCount = 5,
-                //            Labels = new List<string> { "K", "M","L","N","Q" }
-                //        }
-                //    },
-                //    { 3, new NodeTreeConfig  
-                //        {
-                //            TrackRadius = 100,
-                //            ButtonSize = 50,
-                //            VertexCount = 5,
-                //            Labels = new List<string> { "P", "Q","R","S","T" }
-                //        }
-                //    },
-                //    { 4, new NodeTreeConfig
-                //        {
-                //            TrackRadius = 100,
-                //            ButtonSize = 50,
-                //            VertexCount = 5,
-                //            Labels = new List<string> { "U", "V","W","X","Y" }
-                //        }
-                //    }
-
-
-
-                //}
             }
         },
         { 2, new NodeTreeConfig    // 动作节点展开出 2 个子项，且子项还能继续展开
             {
                 TrackRadius = 100,
                 ButtonSize = 50,
-                VertexCount = 11,
-                Labels = new List<string> { "!", "@","#","$","%","^","&","*","(",")","Tab" },
-                //ExpandableConfigs = new Dictionary<int, NodeTreeConfig>
-                //{
-                //    { 0, new NodeTreeConfig   // “跑”展开
-                //        {
-                //            TrackRadius = 40,
-                //            ButtonSize = 25,
-                //            VertexCount = 2,
-                //            Labels = new List<string> { "快跑", "慢跑" }
-                //        }
-                //    }
-                //}
+                VertexCount = 10,
+                Labels = new List<string> { "!", "@","#","$","%","^","&","*","(",")" },
             }
         },
         { 3, new NodeTreeConfig    // 动作节点展开出 2 个子项，且子项还能继续展开
+            {
+                TrackRadius = 100,
+                ButtonSize = 50,
+                VertexCount = 11,
+                Labels = new List<string> { "Tab", "Enter","Space" ,"Delet","Insert","Home","End","up" ,"down","left","right" },
+            }
+        },
+        { 4, new NodeTreeConfig    // 动作节点展开出 2 个子项，且子项还能继续展开
             {
                 TrackRadius = 100,
                 ButtonSize = 50,
@@ -565,20 +517,22 @@ namespace full_AI_tovch
 };
             rootNodes = NodeTree.BuildTree(config);
 
-            var targetNode0 = NodeTree.FindNodeByPath(rootNodes, "3/0");
+            var targetNode0 = NodeTree.FindNodeByPath(rootNodes, "4/0");
             if (targetNode0 != null)
             {
                 targetNode0.ExpandStyle = ExpandStyle.Inline;
                 targetNode0.InlineOnRightClick = true;
             }
 
-            var targetNode1 = NodeTree.FindNodeByPath(rootNodes, "3/2");
+            var targetNode1 = NodeTree.FindNodeByPath(rootNodes, "4/2");
             if (targetNode1 != null)
             {
                 targetNode1.ExpandStyle = ExpandStyle.Inline;
                 targetNode1.InlineOnRightClick = true;
             }
-            Debug.WriteLine($"节点 {targetNode0.DisplayText} - ExpandStyle={targetNode0.ExpandStyle}, InlineOnRightClick={targetNode0.InlineOnRightClick}");
+
+            Debug.WriteLine($"节点 {targetNode0.DisplayText} Path={targetNode0.Path}");
+            Debug.WriteLine($"节点 {targetNode1.DisplayText} Path={targetNode1.Path}");
             LabelConfig.Apply(rootNodes);
             //NodeController.ConfigureAll(rootNodes);
 
@@ -853,10 +807,10 @@ namespace full_AI_tovch
                 }
                 if (node.Children.Count > 0)
                 {
-                    // 新增：根据展开风格选择不同行为
+                   
                     if (node.ExpandStyle == ExpandStyle.Inline)
                     {
-                        PerformInlineExpand(node);   // 内联展开
+                        PerformInlineExpand(node);   
                     }
                     else
                     {
@@ -866,8 +820,10 @@ namespace full_AI_tovch
                 }
                 else
                 {
-                    if (!string.IsNullOrEmpty(node.DisplayText))
-                        TextInjection.Send(node.DisplayText);
+
+                    NodeActionHandlers.InjectText(node);
+                    //if (!string.IsNullOrEmpty(node.DisplayText))
+                    //    TextInjection.Send(node.DisplayText);
                 }
             };
 
