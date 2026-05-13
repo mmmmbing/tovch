@@ -11,7 +11,7 @@ namespace full_AI_tovch
     /// 集中控制节点属性、方法绑定、细粒度配置。
     /// 在 MainWindow.Window_Loaded 构建节点树后调用 ConfigureAll(rootNodes)。
     /// </summary>
-    public static class NodeController
+public static class NodeController
     {
         // ---------- 导航委托（由 MainWindow 注入）----------
         /// <summary>点击可展开节点时，导航到子层。参数为要展开的节点。</summary>
@@ -35,6 +35,7 @@ namespace full_AI_tovch
         // 存储待绑定的处理器：节点路径 → 事件处理器 用来延迟给节点绑定方法
         private static Dictionary<string, List<RoutedEventHandler>> pendingHandlers
             = new Dictionary<string, List<RoutedEventHandler>>();
+
 
 
         // ---------- 全局配置入口 ----------

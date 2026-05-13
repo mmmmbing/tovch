@@ -185,16 +185,28 @@ namespace full_AI_tovch
         {
             if (ghostRect.IsEmpty) return;
 
+            var (ghostCenter, ghostRadius) = GetGhostCircle();
+            if (double.IsNaN(ghostCenter.X)) return;
+
             MenuItemNode foundNode = null;
             foreach (var node in currentLevelNodes)
             {
                 if (node == dragSource) continue;
                 Button btn = node.UiButton;
-                if (btn == null) continue;
-                double l = Canvas.GetLeft(btn), t = Canvas.GetTop(btn);
-                if (double.IsNaN(l) || double.IsNaN(t)) continue;
-                if (ghostRect.IntersectsWith(new Rect(l, t, btn.ActualWidth, btn.ActualHeight)))
-                { foundNode = node; break; }
+                if (btn == null || !btn.IsVisible) continue;
+
+                var (btnCenter, btnRadius) = GetCircle(btn);
+                if (double.IsNaN(btnCenter.X)) continue;
+
+                // 圆心距与半径和比较
+                double dx = ghostCenter.X - btnCenter.X;
+                double dy = ghostCenter.Y - btnCenter.Y;
+                double distance = Math.Sqrt(dx * dx + dy * dy);
+                if (distance <= ghostRadius + btnRadius)
+                {
+                    foundNode = node;
+                    break;
+                }
             }
 
             if (foundNode != null)
@@ -242,9 +254,18 @@ namespace full_AI_tovch
         private static void UpdateCenterHover(Rect ghostRect)
         {
             if (registeredCenterButton == null || !registeredCenterButton.IsVisible || ghostRect.IsEmpty || suspendUpdate) return;
-            double l = Canvas.GetLeft(registeredCenterButton), t = Canvas.GetTop(registeredCenterButton);
-            if (double.IsNaN(l) || double.IsNaN(t)) return;
-            if (ghostRect.IntersectsWith(new Rect(l, t, registeredCenterButton.ActualWidth, registeredCenterButton.ActualHeight)))
+
+            var (ghostCenter, ghostRadius) = GetGhostCircle();
+            if (double.IsNaN(ghostCenter.X)) return;
+
+            var (btnCenter, btnRadius) = GetCircle(registeredCenterButton);
+            if (double.IsNaN(btnCenter.X)) return;
+
+            double dx = ghostCenter.X - btnCenter.X;
+            double dy = ghostCenter.Y - btnCenter.Y;
+            bool intersecting = Math.Sqrt(dx * dx + dy * dy) <= ghostRadius + btnRadius;
+
+            if (intersecting)
             {
                 if (!isHoveringCenter) { isHoveringCenter = true; centerHoverTimer.Start(); }
             }
@@ -444,5 +465,28 @@ namespace full_AI_tovch
             combinedNodes.Clear();
             isDragging = false;
         }
+
+        private static (Point center, double radius) GetCircle(Button btn)
+        {
+            if (btn == null) return (new Point(double.NaN, double.NaN), 0);
+            double left = Canvas.GetLeft(btn);
+            double top = Canvas.GetTop(btn);
+            if (double.IsNaN(left) || double.IsNaN(top)) return (new Point(double.NaN, double.NaN), 0);
+            double radius = btn.ActualWidth / 2;
+            Point center = new Point(left + radius, top + radius);
+            return (center, radius);
+        }
+
+        private static (Point center, double radius) GetGhostCircle()
+        {
+            if (dragGhost == null) return (new Point(double.NaN, double.NaN), 0);
+            double left = Canvas.GetLeft(dragGhost);
+            double top = Canvas.GetTop(dragGhost);
+            if (double.IsNaN(left) || double.IsNaN(top)) return (new Point(double.NaN, double.NaN), 0);
+            double radius = dragGhost.ActualWidth / 2;
+            Point center = new Point(left + radius, top + radius);
+            return (center, radius);
+        }
+
     }
 }

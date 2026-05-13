@@ -5,6 +5,7 @@ using System.Windows.Input;
 
 namespace full_AI_tovch
 {
+
     public static class TextInjection
     {
         #region Win32 定义（标准且完整）

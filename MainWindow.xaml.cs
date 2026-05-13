@@ -13,6 +13,7 @@ using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Threading;
 using System.Xml.Linq;
 
@@ -80,7 +81,12 @@ namespace full_AI_tovch
         private bool isPotentialDrag = false;
         private bool dragCaptureStarted = false;
 
-
+        // 内联展开栈：记录当前内联展开的父节点（可能有嵌套，但子节点不允许再展开，栈深度通常为1）
+        private Stack<MenuItemNode> inlineExpandStack = new Stack<MenuItemNode>();
+        // 缓存被隐藏的兄弟节点列表（原父节点所在层级的除父节点外的其他节点）
+        private List<MenuItemNode> hiddenSiblings = new List<MenuItemNode>();
+        // 当前内联展开生成的子节点列表
+        private List<MenuItemNode> inlineChildren = new List<MenuItemNode>();
 
         private static MainWindow _instance;
         private TextBlock statusIndicator;
@@ -191,6 +197,8 @@ namespace full_AI_tovch
                     node.UiButton.RenderTransform = new ScaleTransform(1.0, 1.0);
                 }
             };
+
+            NodeActionHandlers.InlineExpandAction = PerformInlineExpand;
 
             Loaded += Window_Loaded;
             SourceInitialized += (s, e) =>
@@ -361,7 +369,7 @@ namespace full_AI_tovch
             double centerY = mousePos.Y;
             centerX = centerX - 237;
             centerY = centerY + 27;
-
+            ResetNavigationState();
             ClearCanvas();
             LayoutNodesAroundPoint(rootNodes, centerX, centerY);
 
@@ -386,6 +394,8 @@ namespace full_AI_tovch
 
 
         }
+
+
 
         private void Window_Loaded(object sender, RoutedEventArgs e)
         {
@@ -490,10 +500,19 @@ namespace full_AI_tovch
                 {
                     { 0, new NodeTreeConfig   // “跑”展开
                         {
-                            TrackRadius = 40,
+                            TrackRadius = 80,
                             ButtonSize = 25,
-                            VertexCount = 2,
-                            Labels = new List<string> { "快跑", "慢跑" }
+                            VertexCount = 7,
+                            Labels = new List<string> { "1", "2", "D", "G", "S", "E", "M" }
+                        }
+                    },
+
+                    { 2, new NodeTreeConfig   // “跑”展开
+                        {
+                            TrackRadius = 80,
+                            ButtonSize = 25,
+                            VertexCount = 7,
+                            Labels = new List<string> { "V", "C", "X", "Z", "B", "N", "M" }
                         }
                     }
                 }
@@ -503,6 +522,19 @@ namespace full_AI_tovch
 };
             rootNodes = NodeTree.BuildTree(config);
 
+            var targetNode0 = NodeTree.FindNodeByPath(rootNodes, "3/0");
+            if (targetNode0 != null)
+            {
+                targetNode0.ExpandStyle = ExpandStyle.Inline;
+                targetNode0.InlineOnRightClick = true;
+            }
+
+            var targetNode1 = NodeTree.FindNodeByPath(rootNodes, "3/2");
+            if (targetNode1 != null)
+            {
+                targetNode1.ExpandStyle = ExpandStyle.Inline;
+                targetNode1.InlineOnRightClick = true;
+            }
             LabelConfig.Apply(rootNodes);
             //NodeController.ConfigureAll(rootNodes);
 
@@ -619,9 +651,28 @@ namespace full_AI_tovch
             }
         }
 
+        private void ResetNavigationState()
+        {
+            // 清除历史记录
+            history.Clear();
+            centerHistory.Clear();
+            // 清除内联展开状态
+            RestoreInlineExpand();  // 会清空栈和还原隐藏节点
+            inlineExpandStack.Clear();
+            hiddenSiblings.Clear();
+            inlineChildren.Clear();
+        }
+
+
         // 后退功能（原有逻辑）
         private void GoBack()
         {
+            if (inlineExpandStack.Count > 0)
+            {
+                RestoreInlineExpand();
+                return;
+            }
+
             if (history.Count == 0) return;
             var previousLevel = history.Pop();
             if (centerHistory.Count > 0)
@@ -740,8 +791,17 @@ namespace full_AI_tovch
             btn.PreviewMouseMove += OnNodePreviewMouseMove;
             btn.PreviewMouseLeftButtonUp += OnNodePreviewMouseLeftButtonUp;
             // 核心点击逻辑
+            if (node.ExpandStyle == ExpandStyle.Inline && node.InlineOnRightClick)
+            {
+                btn.PreviewMouseRightButtonDown += (s, e) =>
+                {
+                    PerformInlineExpand(node);
+                    e.Handled = true;   // 阻止冒泡，避免触发全局右键返回
+                };
+            }
+
             btn.Click += (s, e) =>
-            { 
+            {
                 if (ModifierKeyConfig.IsModifierKey(node.Path))
                 {
                     NodeActionHandlers.HandleModifierClick(node);
@@ -749,8 +809,16 @@ namespace full_AI_tovch
                 }
                 if (node.Children.Count > 0)
                 {
-                    NodeController.PrepareChildrenLayout?.Invoke(node);
-                    NodeController.NavigateToChildren?.Invoke(node.Children);
+                    // 新增：根据展开风格选择不同行为
+                    if (node.ExpandStyle == ExpandStyle.Inline)
+                    {
+                        PerformInlineExpand(node);   // 内联展开
+                    }
+                    else
+                    {
+                        NodeController.PrepareChildrenLayout?.Invoke(node);
+                        NodeController.NavigateToChildren?.Invoke(node.Children);
+                    }
                 }
                 else
                 {
@@ -863,6 +931,124 @@ namespace full_AI_tovch
             dragCaptureStarted = false;
             // 不设置 e.Handled，让 Click 可以触发
         }
+        private void RestoreInlineExpand()
+        {
+            if (inlineExpandStack.Count == 0) return;
+
+            var parent = inlineExpandStack.Pop();
+            parent.IsInlineExpanded = false;
+
+            // 移除子节点按钮并从当前节点列表移除
+            foreach (var child in inlineChildren)
+            {
+                if (child.UiButton != null && MainCanvas.Children.Contains(child.UiButton))
+                    MainCanvas.Children.Remove(child.UiButton);
+                child.UiButton = null;
+                currentLevelNodes.Remove(child);   // 关键：从拖拽检测列表移除
+            }
+            inlineChildren.Clear();
+
+            // 恢复兄弟节点（带动画）
+            foreach (var node in hiddenSiblings)
+            {
+                if (node.UiButton != null)
+                    FadeInAndShow(node.UiButton);
+            }
+            hiddenSiblings.Clear();
+
+            // 恢复中心按钮
+            if (centerButton != null)
+                FadeInAndShow(centerButton);
+        }
+
+        // 淡出并隐藏（完成后设置 Visibility.Collapsed）
+        private void FadeOutAndHide(UIElement element, Action onComplete = null)
+        {
+            if (element == null) return;
+            var fadeOut = new DoubleAnimation(0, TimeSpan.FromMilliseconds(150));
+            fadeOut.Completed += (s, _) =>
+            {
+                element.Visibility = Visibility.Collapsed;
+                onComplete?.Invoke();
+            };
+            element.BeginAnimation(UIElement.OpacityProperty, fadeOut);
+        }
+
+        // 显示并淡入（先设置可见，再动画）
+        private void FadeInAndShow(UIElement element)
+        {
+            if (element == null) return;
+            element.Visibility = Visibility.Visible;
+            var fadeIn = new DoubleAnimation(1, TimeSpan.FromMilliseconds(150));
+            element.BeginAnimation(UIElement.OpacityProperty, fadeIn);
+        }
+
+        private void FadeIn(UIElement element)
+        {
+            if (element == null) return;
+            element.Visibility = Visibility.Visible;
+            element.Opacity = 0;
+            var fadeIn = new DoubleAnimation(1, TimeSpan.FromMilliseconds(150));
+            element.BeginAnimation(UIElement.OpacityProperty, fadeIn);
+        }
+        private void PerformInlineExpand(MenuItemNode parent)
+        {
+            if (parent == null || parent.Children.Count == 0) return;
+
+            // 如果已经处于内联展开状态，先恢复
+            if (inlineExpandStack.Count > 0 && inlineExpandStack.Peek() == parent)
+            {
+                RestoreInlineExpand();
+                return;
+            }
+
+            // 保存当前层级的所有节点（即 currentLevelNodes）
+            var siblings = currentLevelNodes;
+            if (siblings == null) return;
+
+            // 隐藏除父节点外的所有兄弟节点
+            // 隐藏除父节点外的所有兄弟节点（带动画）
+            inlineChildren.Clear();
+            foreach (var node in siblings)
+            {
+                if (node == parent) continue;
+                if (node.UiButton != null && node.UiButton.IsVisible)
+                {
+                    FadeOutAndHide(node.UiButton);
+                    hiddenSiblings.Add(node);
+                }
+            }
+
+            // 隐藏中心按钮（如果存在）
+            if (centerButton != null && centerButton.IsVisible)
+            {
+                FadeOutAndHide(centerButton);
+            }
+
+            // 生成父节点的子节点按钮，布局在父节点周围
+            inlineChildren.Clear();
+            double centerX = parent.CenterX;
+            double centerY = parent.CenterY;
+            double radius = parent.SelfTrackRadius;
+            int count = parent.Children.Count;
+            for (int i = 0; i < count; i++)
+            {
+                var child = parent.Children[i];
+                double angle = (2 * Math.PI * i / count) - Math.PI / 2;
+                child.CenterX = centerX + radius * Math.Cos(angle);
+                child.CenterY = centerY + radius * Math.Sin(angle);
+
+                Button btn = CreateButtonForNode(child);
+                FadeIn(btn);  // 使用已实现的动画方法
+
+                inlineChildren.Add(child);
+                currentLevelNodes.Add(child);   // 关键：加入拖拽检测列表
+            }
+
+            inlineExpandStack.Push(parent);
+            parent.IsInlineExpanded = true;
+        }
+
 
         private void OnNodePreviewMouseMove(object sender, MouseEventArgs e)
         {
@@ -1028,30 +1214,56 @@ namespace full_AI_tovch
                 isLongPressTriggered = false;
             };
 
-            btn.PreviewMouseLeftButtonDown += (s, e) =>
+            DispatcherTimer rightLongPressTimer = new DispatcherTimer();
+            DispatcherTimer rightDeleteRepeatTimer = new DispatcherTimer();
+            bool isRightLongPressTriggered = false;
+
+            rightLongPressTimer.Interval = TimeSpan.FromMilliseconds(InteractionConfig.LongPressThreshold);
+            rightLongPressTimer.Tick += (s, e) =>
             {
-                if (DragController.IsDragging || (DateTime.Now - DragController.LastDragEndTime).TotalMilliseconds < 200)
-                    e.Handled = true;
-                else
+                rightLongPressTimer.Stop();
+                isRightLongPressTriggered = true;
+                rightDeleteRepeatTimer.Interval = TimeSpan.FromMilliseconds(InteractionConfig.DeleteRepeatInterval);
+                rightDeleteRepeatTimer.Start();
+                // 立即发送第一个删除
+                SendDelete();
+            };
+
+            rightDeleteRepeatTimer.Tick += (s, e) =>
+            {
+                SendDelete();
+            };
+
+            // 右键按下：启动长按计时器
+            btn.PreviewMouseRightButtonDown += (s, e) =>
+            {
+                isRightLongPressTriggered = false;
+                rightLongPressTimer.Start();
+                e.Handled = true; // 阻止冒泡，避免触发窗口右键菜单
+            };
+
+            // 右键释放：停止所有定时器，如果长按未触发则发送单次删除
+            btn.PreviewMouseRightButtonUp += (s, e) =>
+            {
+                rightLongPressTimer.Stop();
+                rightDeleteRepeatTimer.Stop();
+
+                if (!isRightLongPressTriggered)
                 {
-                    isLongPressTriggered = false;
-                    longPressTimer.Start();
+                    SendDelete(); // 短按 -> 单次删除
                 }
+                e.Handled = true;
             };
 
-            btn.PreviewMouseLeftButtonUp += (s, e) =>
-            {
-                longPressTimer.Stop();
-                deleteRepeatTimer.Stop();
-            };
-
+            // 鼠标离开按钮时，停止所有定时器（防止悬停时仍触发）
             btn.MouseLeave += (s, e) =>
             {
-                longPressTimer.Stop();
-                deleteRepeatTimer.Stop();
+                rightLongPressTimer.Stop();
+                rightDeleteRepeatTimer.Stop();
             };
 
             centerButton = btn;
+            centerButton.Opacity = 1;
             DragController.RegisterCenterButton(centerButton);
         }
 

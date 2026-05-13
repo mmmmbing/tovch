@@ -121,15 +121,24 @@ namespace full_AI_tovch
         }
 
         /// <summary>展开节点的子层</summary>
-public static void ExpandChildren(MenuItemNode node)
-{
-    if (node == null || node.Children.Count == 0) return;
-    PrepareChildrenLayout?.Invoke(node);
-    // 更新待使用的中心点
-    if (MainWindow.Instance != null)
-        MainWindow.Instance.SetPendingCenter(node.CenterX, node.CenterY);
-    NavigateToChildren?.Invoke(node.Children);
-}
+        public static void ExpandChildren(MenuItemNode node)
+        {
+            if (node == null || node.Children.Count == 0) return;
+
+            if (node.ExpandStyle == ExpandStyle.Normal)
+            {
+                // 原有下钻逻辑
+                PrepareChildrenLayout?.Invoke(node);
+                MainWindow.Instance?.SetPendingCenter(node.CenterX, node.CenterY);
+                NavigateToChildren?.Invoke(node.Children);
+            }
+            else if (node.ExpandStyle == ExpandStyle.Inline)
+            {
+                // 新增内联展开逻辑
+                InlineExpandAction?.Invoke(node);
+            }
+        }
+        public static Action<MenuItemNode> InlineExpandAction { get; set; }
 
         /// <summary>切换节点标签</summary>
         public static void SwitchLabel(MenuItemNode node)

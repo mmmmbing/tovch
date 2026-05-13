@@ -5,6 +5,11 @@ using System.Windows.Media;
 
 namespace full_AI_tovch
 {
+    public enum ExpandStyle
+    {
+        Normal,   // 下钻展开（清空画布，显示子节点围绕新中心）
+        Inline    // 内联展开（隐藏同级节点，子节点围绕父节点显示）
+    }
     public class MenuItemNode 
     {
         public string Text { get; set; }
@@ -85,5 +90,10 @@ namespace full_AI_tovch
                 UiButton.Content = DisplayText;
         }
 
+        //新展开页面属性
+        public ExpandStyle ExpandStyle { get; set; } = ExpandStyle.Normal;
+        public bool IsInlineExpanded { get; set; } = false;
+
+        public bool InlineOnRightClick { get; set; } = false;
     }
 }

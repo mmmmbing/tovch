@@ -20,10 +20,10 @@ namespace full_AI_tovch
 
 
         // 长按判定阈值 (毫秒)
-        public static double LongPressThreshold { get; set; } = 500;
+        public static double LongPressThreshold { get; set; } = 300;
 
         // 长按后重复发送删除键的间隔 (毫秒)
-        public static double DeleteRepeatInterval { get; set; } = 100;
+        public static double DeleteRepeatInterval { get; set; } = 30;
 
         // 长按发送的删除键（符合 SendKeys 格式）
         public static string DeleteKey { get; set; } = "{BACKSPACE}";

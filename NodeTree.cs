@@ -24,7 +24,8 @@ namespace full_AI_tovch
                     Text = label,
                     ButtonSize = config.ButtonSize,
                     SelfTrackRadius = selfRadius,
-                    Path = string.IsNullOrEmpty(parentPath) ? i.ToString() : parentPath + "/" + i.ToString()  // 设置路径
+                    Path = string.IsNullOrEmpty(parentPath) ? i.ToString() : parentPath + "/" + i.ToString(),  // 设置路径
+                    ExpandStyle = config.ExpandStyle
                 };
 
                 if (config.ExpandableConfigs.TryGetValue(i, out var childConfig))
