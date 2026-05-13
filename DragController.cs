@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
@@ -31,6 +32,9 @@ namespace full_AI_tovch
         private static bool isHoveringCenter;
         private static DispatcherTimer centerHoverTimer;
 
+
+        private static MenuItemNode rightClickInlineHoverNode;   // 当前悬停的右键内联节点
+
         public static Action<MenuItemNode> ExpandAction { get; set; }
         public static Action BackAction { get; set; }
 
@@ -56,6 +60,22 @@ namespace full_AI_tovch
                 isHoveringCenter = false;
             };
         }
+
+
+        
+
+        // 新增委托，由 MainWindow 注册为 PerformInlineExpand
+        public static Action<MenuItemNode> RightClickInlineExpandAction { get; set; }
+
+        public static void OnRightClickWhileDragging(ref bool handled)
+{
+    if (!isDragging) return;
+    if (rightClickInlineHoverNode != null)
+    {
+        RightClickInlineExpandAction?.Invoke(rightClickInlineHoverNode);
+        handled = true;
+    }
+}
 
         public static void RegisterCenterButton(Button btn) => registeredCenterButton = btn;
 
@@ -209,6 +229,17 @@ namespace full_AI_tovch
                 }
             }
 
+            if (foundNode != null && foundNode.ExpandStyle == ExpandStyle.Inline && foundNode.InlineOnRightClick)
+            {
+                rightClickInlineHoverNode = foundNode;
+                Debug.WriteLine($"[Drag] 悬停右键内联节点: {foundNode.DisplayText}");
+            }
+            else
+            {
+                if (rightClickInlineHoverNode != null)
+                    Debug.WriteLine($"[Drag] 离开右键内联节点: {rightClickInlineHoverNode.DisplayText}");
+                rightClickInlineHoverNode = null;
+            }
             if (foundNode != null)
             {
                 bool isLeaf = foundNode.Children.Count == 0;
@@ -251,6 +282,8 @@ namespace full_AI_tovch
             }
         }
 
+
+
         private static void UpdateCenterHover(Rect ghostRect)
         {
             if (registeredCenterButton == null || !registeredCenterButton.IsVisible || ghostRect.IsEmpty || suspendUpdate) return;
@@ -275,7 +308,12 @@ namespace full_AI_tovch
             }
         }
 
-        private static void ResetHoverTimer() { hoverTimer.Stop(); hoveredNode = null; }
+        private static void ResetHoverTimer()
+        {
+            hoverTimer.Stop();
+            hoveredNode = null;
+            rightClickInlineHoverNode = null;   // 添加这行
+        }
 
         private static void OnHoverTimerTick(object sender, EventArgs e)
         {
@@ -447,6 +485,7 @@ namespace full_AI_tovch
             foreach (var btn in highlightedButtons)
                 UpdateNodeAppearance(btn);
             highlightedButtons.Clear();
+            rightClickInlineHoverNode = null;
 
             // 额外遍历当前层级所有节点，强制重置外观（防止漏网之鱼）
             if (currentLevelNodes != null)
@@ -466,7 +505,7 @@ namespace full_AI_tovch
             isDragging = false;
         }
 
-        private static (Point center, double radius) GetCircle(Button btn)
+        public static (Point center, double radius) GetCircle(Button btn)
         {
             if (btn == null) return (new Point(double.NaN, double.NaN), 0);
             double left = Canvas.GetLeft(btn);
@@ -483,7 +522,7 @@ namespace full_AI_tovch
             double left = Canvas.GetLeft(dragGhost);
             double top = Canvas.GetTop(dragGhost);
             if (double.IsNaN(left) || double.IsNaN(top)) return (new Point(double.NaN, double.NaN), 0);
-            double radius = dragGhost.ActualWidth / 2;
+            double radius = dragGhost.ActualWidth > 0 ? dragGhost.ActualWidth / 2 : dragSource.ButtonSize / 2;
             Point center = new Point(left + radius, top + radius);
             return (center, radius);
         }

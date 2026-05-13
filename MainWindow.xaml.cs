@@ -134,8 +134,8 @@ namespace full_AI_tovch
 
             DragController.ExpandAction = (node) => NodeActionHandlers.ExpandChildren(node);
             DragController.BackAction = () => GoBack();
-
-
+            DragController.RightClickInlineExpandAction = PerformInlineExpand;
+            this.PreviewMouseRightButtonDown += OnGlobalRightButtonDownForInlineExpand;
 
             NodeActionHandlers.UpdateModifierKeyAppearance = (node) =>
             {
@@ -295,8 +295,51 @@ namespace full_AI_tovch
             }
         }
 
+        private MenuItemNode GetNodeAtPosition(Point pos)
+        {
+            foreach (var node in currentLevelNodes)
+            {
+                if (node.UiButton == null || !node.UiButton.IsVisible) continue;
+                var (center, radius) = DragController.GetCircle(node.UiButton);
+                if (double.IsNaN(center.X)) continue;
+                double dx = pos.X - center.X;
+                double dy = pos.Y - center.Y;
+                if (Math.Sqrt(dx * dx + dy * dy) <= radius)
+                    return node;
+            }
+            return null;
+        }
+        private void OnGlobalRightButtonDownForInlineExpand(object sender, MouseButtonEventArgs e)
+        {
+            if (!DragController.IsDragging) return;
 
+            // 方法1：优先使用 DragController 记录的节点
+            bool handled = false;
+            DragController.OnRightClickWhileDragging(ref handled);
+            if (handled)
+            {
+                e.Handled = true;
+                return;
+            }
 
+            // 方法2：备用：直接检测鼠标下的节点
+            Point mousePos = e.GetPosition(MainCanvas);
+            var node = GetNodeAtPosition(mousePos);
+            if (node != null && node.ExpandStyle == ExpandStyle.Inline && node.InlineOnRightClick)
+            {
+                ForceInlineExpandForDrag(node);
+                e.Handled = true;
+            }
+        }
+
+        private void ForceInlineExpandForDrag(MenuItemNode parent)
+        {
+            if (parent == null || parent.Children.Count == 0) return;
+            // 如果已展开，不做任何操作（防止收起）
+            if (inlineExpandStack.Count > 0 && inlineExpandStack.Peek() == parent)
+                return;
+            PerformInlineExpand(parent);
+        }
         //自动回到上一级速度
         //public static void TriggerDelayedBack()
         //{
@@ -535,6 +578,7 @@ namespace full_AI_tovch
                 targetNode1.ExpandStyle = ExpandStyle.Inline;
                 targetNode1.InlineOnRightClick = true;
             }
+            Debug.WriteLine($"节点 {targetNode0.DisplayText} - ExpandStyle={targetNode0.ExpandStyle}, InlineOnRightClick={targetNode0.InlineOnRightClick}");
             LabelConfig.Apply(rootNodes);
             //NodeController.ConfigureAll(rootNodes);
 
@@ -959,6 +1003,9 @@ namespace full_AI_tovch
             // 恢复中心按钮
             if (centerButton != null)
                 FadeInAndShow(centerButton);
+            
+            // 通知 DragController 层级变化
+            DragController.LevelChanged(MainCanvas, currentLevelNodes, MousePositionHelper.GetCursorPosition());
         }
 
         // 淡出并隐藏（完成后设置 Visibility.Collapsed）
@@ -993,12 +1040,15 @@ namespace full_AI_tovch
         }
         private void PerformInlineExpand(MenuItemNode parent)
         {
+            Debug.WriteLine($"[Main] PerformInlineExpand 被调用，节点: {parent?.DisplayText}, 当前内联栈: {inlineExpandStack.Count}");
             if (parent == null || parent.Children.Count == 0) return;
 
             // 如果已经处于内联展开状态，先恢复
             if (inlineExpandStack.Count > 0 && inlineExpandStack.Peek() == parent)
             {
                 RestoreInlineExpand();
+                // 恢复后也需要通知 DragController 层级变化
+                DragController.LevelChanged(MainCanvas, currentLevelNodes, MousePositionHelper.GetCursorPosition());
                 return;
             }
 
@@ -1047,6 +1097,7 @@ namespace full_AI_tovch
 
             inlineExpandStack.Push(parent);
             parent.IsInlineExpanded = true;
+            DragController.LevelChanged(MainCanvas, currentLevelNodes, MousePositionHelper.GetCursorPosition());
         }
 
 
