@@ -409,56 +409,56 @@ namespace full_AI_tovch
         },
         { 1, new NodeTreeConfig    // 动物节点展开出 4 个子项
             {
-                TrackRadius = 100,
-                ButtonSize = 50,
-                VertexCount = 6,
-                Labels = new List<string> { "A-E", "F-J", "K-O", "P-T","U-Y","Z" },
-                ExpandableConfigs = new Dictionary<int, NodeTreeConfig>
-                {
-                     { 0, new NodeTreeConfig   
-                        {
-                            TrackRadius = 100,
-                            ButtonSize = 50,
-                            VertexCount = 5,
-                            Labels = new List<string> { "A", "B","C","D","E" }
-                        }
-                    },
-                    { 1, new NodeTreeConfig  
-                        {
-                            TrackRadius = 100,
-                            ButtonSize = 50,
-                            VertexCount = 5,
-                            Labels = new List<string> { "F", "G","H","I","J" }
-                        }
-                    },
-                    { 2, new NodeTreeConfig  
-                        {
-                            TrackRadius = 100,
-                            ButtonSize = 50,
-                            VertexCount = 5,
-                            Labels = new List<string> { "K", "M","L","N","Q" }
-                        }
-                    },
-                    { 3, new NodeTreeConfig  
-                        {
-                            TrackRadius = 100,
-                            ButtonSize = 50,
-                            VertexCount = 5,
-                            Labels = new List<string> { "P", "Q","R","S","T" }
-                        }
-                    },
-                    { 4, new NodeTreeConfig
-                        {
-                            TrackRadius = 100,
-                            ButtonSize = 50,
-                            VertexCount = 5,
-                            Labels = new List<string> { "U", "V","W","X","Y" }
-                        }
-                    }
+                TrackRadius = 210,
+                ButtonSize = 40,
+                VertexCount = 26,
+                Labels = new List<string> { "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "N", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z" },
+                //ExpandableConfigs = new Dictionary<int, NodeTreeConfig>
+                //{
+                //     { 0, new NodeTreeConfig   
+                //        {
+                //            TrackRadius = 100,
+                //            ButtonSize = 50,
+                //            VertexCount = 5,
+                //            Labels = new List<string> { "A", "B","C","D","E" }
+                //        }
+                //    },
+                //    { 1, new NodeTreeConfig  
+                //        {
+                //            TrackRadius = 100,
+                //            ButtonSize = 50,
+                //            VertexCount = 5,
+                //            Labels = new List<string> { "F", "G","H","I","J" }
+                //        }
+                //    },
+                //    { 2, new NodeTreeConfig  
+                //        {
+                //            TrackRadius = 100,
+                //            ButtonSize = 50,
+                //            VertexCount = 5,
+                //            Labels = new List<string> { "K", "M","L","N","Q" }
+                //        }
+                //    },
+                //    { 3, new NodeTreeConfig  
+                //        {
+                //            TrackRadius = 100,
+                //            ButtonSize = 50,
+                //            VertexCount = 5,
+                //            Labels = new List<string> { "P", "Q","R","S","T" }
+                //        }
+                //    },
+                //    { 4, new NodeTreeConfig
+                //        {
+                //            TrackRadius = 100,
+                //            ButtonSize = 50,
+                //            VertexCount = 5,
+                //            Labels = new List<string> { "U", "V","W","X","Y" }
+                //        }
+                //    }
 
 
 
-                }
+                //}
             }
         },
         { 2, new NodeTreeConfig    // 动作节点展开出 2 个子项，且子项还能继续展开
