@@ -8,19 +8,6 @@
 	
 
 ```test
-/NodeTreeConfig.cs    //项目节点树的配置文件
-/MenuItemNode.cs      //项目节点的Class类文件
-/NodeTree.cs		  //节点树的Class文件
-/AnimationConfig.cs   //动画配置文件
-/NodeConfig.cs		  //节点配置文件
-/TextInjection.cs     //文本注入实现文件
-/MainWindow.xaml      //渲染进程文件
-/MainWindow.xaml.cs   //主进程文件
-/NodeController.cs    //节点方法配置文件
-/LabelConfig.cs       //隐藏标签配置文件
-/InteractionConfig.cs //交互配置文件<快捷键配置文件>
-/MenuActivation.cs    //快捷键注册文件
-
 AnimationConfig.cs		 //动画配置文件
 App.xaml.cs				 //项目程序入口
 DragController.cs 		 //拖拽事件控制文件
