@@ -22,6 +22,8 @@ namespace full_AI_tovch
         private static bool isDragging;
         private static bool suspendUpdate;          // 层级切换后短暂抑制检测
 
+        private static HashSet<MenuItemNode> intersectingNodes = new HashSet<MenuItemNode>();
+
         private static List<MenuItemNode> combinedNodes = new List<MenuItemNode>();
         private static HashSet<Button> highlightedButtons = new HashSet<Button>();
 
@@ -37,6 +39,9 @@ namespace full_AI_tovch
 
         public static Action<MenuItemNode> ExpandAction { get; set; }
         public static Action BackAction { get; set; }
+
+        //private static Dictionary<MenuItemNode, DateTime> lastAddTime = new Dictionary<MenuItemNode, DateTime>();
+        //private const double RepeatIntervalMs = 150;
 
         public static bool IsDragging => isDragging;
         public static MenuItemNode DragSource => dragSource;
@@ -107,6 +112,8 @@ namespace full_AI_tovch
             isHoveringCenter = false;
             centerHoverTimer.Stop();
 
+            intersectingNodes.Clear();
+            //lastAddTime.Clear();
             return true;
         }
 
@@ -212,14 +219,13 @@ namespace full_AI_tovch
             MenuItemNode foundNode = null;
             foreach (var node in currentLevelNodes)
             {
-                if (node == dragSource) continue;
+                // 不再跳过 dragSource，允许自身相交
                 Button btn = node.UiButton;
                 if (btn == null || !btn.IsVisible) continue;
 
                 var (btnCenter, btnRadius) = GetCircle(btn);
                 if (double.IsNaN(btnCenter.X)) continue;
 
-                // 圆心距与半径和比较
                 double dx = ghostCenter.X - btnCenter.X;
                 double dy = ghostCenter.Y - btnCenter.Y;
                 double distance = Math.Sqrt(dx * dx + dy * dy);
@@ -230,15 +236,6 @@ namespace full_AI_tovch
                 }
             }
 
-            if (foundNode != null && foundNode.ExpandStyle == ExpandStyle.Inline && foundNode.InlineOnRightClick)
-            {
-                rightClickInlineHoverNode = foundNode;
-            }
-            else
-            {
-                if (rightClickInlineHoverNode != null)
-                rightClickInlineHoverNode = null;
-            }
             if (foundNode != null)
             {
                 bool isLeaf = foundNode.Children.Count == 0;
@@ -247,17 +244,21 @@ namespace full_AI_tovch
 
                 if (!isExpandableNonMod)
                 {
-                    if (!combinedNodes.Contains(foundNode))
-                        combinedNodes.Add(foundNode);
-                    if (!highlightedButtons.Contains(foundNode.UiButton))
+                    // 仅当这次相交是新进入（之前未相交）时添加
+                    if (!intersectingNodes.Contains(foundNode))
                     {
-                        foundNode.UiButton.Background = Brushes.LightGreen;
-                        highlightedButtons.Add(foundNode.UiButton);
+                        intersectingNodes.Add(foundNode);
+                        combinedNodes.Add(foundNode);
+                        if (!highlightedButtons.Contains(foundNode.UiButton))
+                        {
+                            foundNode.UiButton.Background = Brushes.LightGreen;
+                            highlightedButtons.Add(foundNode.UiButton);
+                        }
                     }
                 }
-
-                if (isExpandableNonMod)
+                else
                 {
+                    // 可展开节点悬停逻辑
                     if (hoveredNode != foundNode)
                     {
                         ResetHoverTimer();
@@ -265,11 +266,14 @@ namespace full_AI_tovch
                         hoverTimer.Start();
                     }
                 }
-                else ResetHoverTimer();
             }
-            else ResetHoverTimer();
+            else
+            {
+                ResetHoverTimer();
+                intersectingNodes.Clear();   // 无相交，清空集合
+            }
 
-            // 恢复不再相交的高亮节点外观
+            // 恢复不再相交的高亮节点（原有逻辑保留，但要确保从 intersectingNodes 中移除相应节点）
             foreach (var btn in new List<Button>(highlightedButtons))
             {
                 MenuItemNode node = btn.Tag as MenuItemNode;
@@ -277,6 +281,7 @@ namespace full_AI_tovch
                 {
                     UpdateNodeAppearance(btn);
                     highlightedButtons.Remove(btn);
+                    intersectingNodes.Remove(node);   // 同时从相交集合移除
                 }
             }
         }
@@ -311,7 +316,8 @@ namespace full_AI_tovch
         {
             hoverTimer.Stop();
             hoveredNode = null;
-            rightClickInlineHoverNode = null;   // 添加这行
+            intersectingNodes.Clear();   // 添加这行
+            //ResetHoverTimer();
         }
 
         private static void OnHoverTimerTick(object sender, EventArgs e)
@@ -502,6 +508,8 @@ namespace full_AI_tovch
 
             combinedNodes.Clear();
             isDragging = false;
+            intersectingNodes.Clear();
+            //lastAddTime.Clear();
         }
 
         public static (Point center, double radius) GetCircle(Button btn)

@@ -466,7 +466,7 @@ namespace full_AI_tovch
                 TrackRadius = 210,
                 ButtonSize = 40,
                 VertexCount = 26,
-                Labels = new List<string> { "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "N", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z" },
+                Labels = new List<string> { "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z" },
             }
         },
         { 2, new NodeTreeConfig    // 动作节点展开出 2 个子项，且子项还能继续展开
@@ -482,7 +482,7 @@ namespace full_AI_tovch
                 TrackRadius = 100,
                 ButtonSize = 50,
                 VertexCount = 11,
-                Labels = new List<string> { "Tab", "Enter","Space" ,"Delet","Insert","Home","End","up" ,"down","left","right" },
+                Labels = new List<string> { "Tab", "Enter","Space" ,"Delete","Insert","Home","End","up" ,"down","left","right" },
             }
         },
         { 4, new NodeTreeConfig    // 动作节点展开出 2 个子项，且子项还能继续展开
