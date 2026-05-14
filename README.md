@@ -58,13 +58,13 @@ TextInjection.cs		 //文本注入实现逻辑
 
 当用户敲击启动快捷键[默认配置是ctrl + shift + F12]后项目被前台唤起：
 
-![image-20260514151611319](E:\project\windows\Csharp\full-AI-tovch\README.assets\image-20260514151611319.png)
+![image-20260514151611319](./README.assets/image-20260514151611319.png)
 
 这时候可以看到给键位分成了五大类型：
 
 num   :  仅存放1-9；
 
-![image-20260514151758482](.\README.assets\image-20260514151758482.png)
+![image-20260514151758482](./README.assets/image-20260514151758482.png)
 
 chara ：存放 a - z；
 
@@ -73,11 +73,11 @@ chara ：存放 a - z；
 这些按键由于相对普通不涉及任何特殊功能，为了输出快捷:可以使用拖拽进行组合输出，将节点A拖拽时经过别的节点B时，可以组合文本注入AB。
 
 同时也可以实现跨级拖拽来实现手势输入操作。
-![PixPin_2026-05-14_15-27-04](.\README.assets\PixPin_2026-05-14_15-27-04.gif)
+![PixPin_2026-05-14_15-27-04](./README.assets/PixPin_2026-05-14_15-27-04.gif)
 
 
 切换到sym可以对修饰按键以及快捷键的集成使用：
 
 例如：
 
-![PixPin_2026-05-14_18-21-50](.\README.assets\PixPin_2026-05-14_18-21-50.gif)
+![PixPin_2026-05-14_18-21-50](./README.assets/PixPin_2026-05-14_18-21-50.gif)
