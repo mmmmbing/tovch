@@ -19,8 +19,8 @@ namespace full_AI_tovch
         public static ModifierKeys ToggleLabelsModifiers { get; set; } = ModifierKeys.Control;
 
         // 退出软件热键
-        public static Key ExitKey { get; set; } = Key.Escape;
-        public static ModifierKeys ExitModifiers { get; set; } = ModifierKeys.Control;
+        public static Key ExitKey { get; set; } = Key.Escape ;
+        public static ModifierKeys ExitModifiers { get; set; } = ModifierKeys.Control | ModifierKeys.Alt;
 
 
         // 长按判定阈值 (毫秒)

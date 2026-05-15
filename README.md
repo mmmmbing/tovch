@@ -56,7 +56,7 @@ InteractionConfig.cs 可以配置快捷键内容
 | CTRL + SHIFT + F12 |   唤醒操作菜单   |
 |      CTRL + T      | 改变节点标签内容 |
 |        ESC         |   隐藏操作菜单   |
-|     CERL + ESC     |   释放软件内存   |
+|  CERL + ALT + ESC  |   释放软件内存   |
 
 ## 三、项目操作指南
 
