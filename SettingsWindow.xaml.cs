@@ -32,6 +32,25 @@ namespace full_AI_tovch
             LoadSettings();
         }
 
+        // 窗口加载淡入动画
+        private void Window_Loaded(object sender, RoutedEventArgs e)
+        {
+            var fadeIn = new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(200));
+            this.BeginAnimation(OpacityProperty, fadeIn);
+        }
+
+        // 标题栏拖动
+        private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            this.DragMove();
+        }
+
+        // 关闭按钮
+        private void BtnClose_Click(object sender, RoutedEventArgs e)
+        {
+            this.Close();
+        }
+
         private void LoadSettings()
         {
             chkAutoStart.IsChecked = _settings.AutoStart;

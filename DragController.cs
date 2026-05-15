@@ -18,7 +18,7 @@ namespace full_AI_tovch
 
         private static MenuItemNode dragSource;
         private static Button dragGhost;
-        private static Point startMousePoint;
+        private static System.Windows.Point startMousePoint;
         private static bool isDragging;
         private static bool suspendUpdate;          // 层级切换后短暂抑制检测
 
@@ -84,7 +84,7 @@ namespace full_AI_tovch
 
         public static void RegisterCenterButton(Button btn) => registeredCenterButton = btn;
 
-        public static bool StartDrag(MenuItemNode node, Button button, Point mousePos)
+        public static bool StartDrag(MenuItemNode node, Button button, System.Windows.Point mousePos)
         {
             // 禁止拖拽有子节点且非修饰键的节点
             if (node.Children.Count > 0 && !ModifierKeyConfig.IsModifierKey(node.Path))
@@ -168,7 +168,7 @@ namespace full_AI_tovch
             Cleanup(canvas);
         }
 
-        public static void LevelChanged(Canvas newCanvas, List<MenuItemNode> newLevelNodes, Point currentMousePos)
+        public static void LevelChanged(Canvas newCanvas, List<MenuItemNode> newLevelNodes, System.Windows.Point currentMousePos)
         {
             if (!isDragging || dragSource == null) return;
 
@@ -519,7 +519,7 @@ namespace full_AI_tovch
             double top = Canvas.GetTop(btn);
             if (double.IsNaN(left) || double.IsNaN(top)) return (new Point(double.NaN, double.NaN), 0);
             double radius = btn.ActualWidth / 2;
-            Point center = new Point(left + radius, top + radius);
+            System.Windows.Point center = new Point(left + radius, top + radius);
             return (center, radius);
         }
 
@@ -530,7 +530,7 @@ namespace full_AI_tovch
             double top = Canvas.GetTop(dragGhost);
             if (double.IsNaN(left) || double.IsNaN(top)) return (new Point(double.NaN, double.NaN), 0);
             double radius = dragGhost.ActualWidth > 0 ? dragGhost.ActualWidth / 2 : dragSource.ButtonSize / 2;
-            Point center = new Point(left + radius, top + radius);
+            System.Windows.Point center = new Point(left + radius, top + radius);
             return (center, radius);
         }
 
