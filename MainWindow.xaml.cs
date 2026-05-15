@@ -46,6 +46,9 @@ namespace full_AI_tovch
             throw new InvalidOperationException("无法获取鼠标位置");
         }
     }
+
+
+
     public partial class MainWindow : Window
     {
         // 整个菜单树的根节点列表（永驻）
@@ -224,6 +227,7 @@ namespace full_AI_tovch
 
                 //注册全局退出热键
                 MenuActivation.ExitRequested += OnExitRequested;
+
             };
 
 
@@ -239,6 +243,18 @@ namespace full_AI_tovch
                 Width = SystemParameters.PrimaryScreenWidth;
                 Height = SystemParameters.PrimaryScreenHeight;
             };
+
+            // 构造函数中
+            this.PreviewMouseRightButtonDown += (s, e) =>
+            {
+                if (e.RightButton == MouseButtonState.Pressed && Keyboard.Modifiers == ModifierKeys.Control)
+                {
+                    OpenSettings();
+                    e.Handled = true;
+                }
+            };
+
+
 
             //节点控制区
 
@@ -261,6 +277,18 @@ namespace full_AI_tovch
         //    e.Handled = true; // 阻止任何后续 Click 事件，避免误触发
         //}
 
+        protected override void OnSourceInitialized(EventArgs e)
+        {
+            base.OnSourceInitialized(e);
+            var helper = new WindowInteropHelper(this);
+            IntPtr handle = helper.Handle;
+            MenuActivation.Initialize(handle);
+            MenuActivation.ShowRequested += ShowMenu;
+            MenuActivation.HideRequested += HideMenu;
+            MenuActivation.RegisterWakeUpHotkey();
+            MenuActivation.RegisterExitHotkey();   // 退出热键始终有效
+        }
+
         public void RefreshCenterButton()
         {
             if (centerButton != null && MainCanvas.Children.Contains(centerButton))
@@ -278,6 +306,77 @@ namespace full_AI_tovch
                 // 关闭窗口，结束应用程序
                 Application.Current.Shutdown();
             });
+        }
+
+        private void OpenSettings()
+        {
+            var currentSettings = LoadCurrentSettings();
+            var win = new SettingsWindow(currentSettings);
+            win.Owner = this;
+            if (win.ShowDialog() == true)
+            {
+                ApplySettings(currentSettings);
+                // 重新注册所有热键
+                MenuActivation.ReRegisterHotkeys();
+                // 刷新中心按钮等
+                RefreshCenterButton();
+            }
+        }
+
+        private UserSettings LoadCurrentSettings()
+        {
+            // 优先从文件加载，否则从当前 InteractionConfig 读取
+            string configPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "UserSettings.xml");
+            if (System.IO.File.Exists(configPath))
+                return UserSettings.Load(configPath);
+
+            return new UserSettings
+            {
+                WakeUp = new HotkeyConfig { Key = InteractionConfig.WakeUpKey, Modifiers = InteractionConfig.WakeUpModifiers },
+                Hide = new HotkeyConfig { Key = InteractionConfig.HideKey, Modifiers = InteractionConfig.HideModifiers },
+                ToggleLabels = new HotkeyConfig { Key = InteractionConfig.ToggleLabelsKey, Modifiers = InteractionConfig.ToggleLabelsModifiers },
+                Exit = new HotkeyConfig { Key = InteractionConfig.ExitKey, Modifiers = InteractionConfig.ExitModifiers },
+                LongPressThreshold = InteractionConfig.LongPressThreshold,
+                DeleteRepeatInterval = InteractionConfig.DeleteRepeatInterval,
+                DeleteKey = InteractionConfig.DeleteKey,
+                ShowCenterNode = CenterNodeConfig.ShowCenterNode,
+                CenterButtonSize = CenterNodeConfig.ButtonSize,
+                CenterButtonText = CenterNodeConfig.Text,
+                CenterLongPressThresholdMs = CenterNodeConfig.LongPressThresholdMs,
+                CenterDeleteRepeatIntervalMs = CenterNodeConfig.DeleteRepeatIntervalMs,
+                AutoStart = false
+            };
+        }
+
+        private void LoadUserSettingsOnStartup()
+        {
+            string configPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "UserSettings.xml");
+            if (System.IO.File.Exists(configPath))
+            {
+                var settings = UserSettings.Load(configPath);
+                ApplySettings(settings);
+            }
+        }
+
+        private void ApplySettings(UserSettings settings)
+        {
+            InteractionConfig.WakeUpKey = settings.WakeUp.Key;
+            InteractionConfig.WakeUpModifiers = settings.WakeUp.Modifiers;
+            InteractionConfig.HideKey = settings.Hide.Key;
+            InteractionConfig.HideModifiers = settings.Hide.Modifiers;
+            InteractionConfig.ToggleLabelsKey = settings.ToggleLabels.Key;
+            InteractionConfig.ToggleLabelsModifiers = settings.ToggleLabels.Modifiers;
+            InteractionConfig.ExitKey = settings.Exit.Key;
+            InteractionConfig.ExitModifiers = settings.Exit.Modifiers;
+            InteractionConfig.LongPressThreshold = settings.LongPressThreshold;
+            InteractionConfig.DeleteRepeatInterval = settings.DeleteRepeatInterval;
+            InteractionConfig.DeleteKey = settings.DeleteKey;
+
+            CenterNodeConfig.ShowCenterNode = settings.ShowCenterNode;
+            CenterNodeConfig.ButtonSize = settings.CenterButtonSize;
+            CenterNodeConfig.Text = settings.CenterButtonText;
+            CenterNodeConfig.LongPressThresholdMs = settings.CenterLongPressThresholdMs;
+            CenterNodeConfig.DeleteRepeatIntervalMs = settings.CenterDeleteRepeatIntervalMs;
         }
 
 

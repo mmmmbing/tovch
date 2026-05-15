@@ -32,6 +32,8 @@ namespace full_AI_tovch
         private static IntPtr handle;  // 保存窗口句柄
         private static int wakeUpHotkeyId = 9001;
         private static int hideHotkeyId = 9002;
+        private static int toggleLabelsHotkeyId = 9003;
+        private static int exitHotkeyId = 9004;
 
         public static event Action ShowRequested;
         public static event Action HideRequested;
@@ -46,21 +48,19 @@ namespace full_AI_tovch
 
         public static void RegisterWakeUpHotkey()
         {
-            if (handle == IntPtr.Zero)
-            {
-                MessageBox.Show("窗口句柄为 Zero！");
-                return;
-            }
+            if (handle == IntPtr.Zero) return;
+            UnregisterHotKey(handle, wakeUpHotkeyId);
             bool success = RegisterHotKey(handle, wakeUpHotkeyId,
                 ModifierKeysConverter.ToWin32(InteractionConfig.WakeUpModifiers),
                 (uint)KeyInterop.VirtualKeyFromKey(InteractionConfig.WakeUpKey));
             if (!success)
             {
                 int err = Marshal.GetLastWin32Error();
-                MessageBox.Show($"注册失败，错误码: {err}");
-            }
-            else
-            {
+                if (err == 1409)
+                {
+                    // 仍然冲突，说明其他软件占用，提示用户修改热键
+                    MessageBox.Show($"热键 {InteractionConfig.WakeUpKey} 被其他程序占用，请修改配置。");
+                }
             }
         }
         public static void RegisterHideHotkey()
@@ -81,6 +81,7 @@ namespace full_AI_tovch
         {
             UnregisterHotKey(handle, wakeUpHotkeyId);
             UnregisterHotKey(handle, hideHotkeyId);
+            UnregisterHotKey(handle, toggleLabelsHotkeyId);
             UnregisterHotKey(handle, exitHotkeyId);
             if (hwndSource != null)
                 hwndSource.RemoveHook(WndProc);
@@ -113,8 +114,8 @@ namespace full_AI_tovch
                     HideRequested?.Invoke();
                     handled = true;
                 }
-                else if(hotkeyId == toggleLabelsHotkeyId)
-{
+                else if (hotkeyId == toggleLabelsHotkeyId)
+                {
                     ToggleLabelsRequested?.Invoke();
                     handled = true;
                 }
@@ -128,8 +129,8 @@ namespace full_AI_tovch
         }
 
 
-    //以下为新添加的对于标签替换的热键注册处理代码
-        private static int toggleLabelsHotkeyId = 9003;
+        //以下为新添加的对于标签替换的热键注册处理代码
+        
 
         public static event Action ToggleLabelsRequested;
 
@@ -147,14 +148,14 @@ namespace full_AI_tovch
             UnregisterHotKey(handle, toggleLabelsHotkeyId);
         }
 
-        private static int exitHotkeyId = 9004;  // 新 ID
+        //private static int exitHotkeyId = 9004;  // 新 ID
 
         public static event Action ExitRequested;  // 退出事件
 
         public static void RegisterExitHotkey()
         {
             if (handle == IntPtr.Zero) return;
-            UnregisterHotKey(handle, exitHotkeyId);
+            UnregisterHotKey(handle, exitHotkeyId);  // 使用 exitHotkeyId
             RegisterHotKey(handle, exitHotkeyId,
                 ModifierKeysConverter.ToWin32(InteractionConfig.ExitModifiers),
                 (uint)KeyInterop.VirtualKeyFromKey(InteractionConfig.ExitKey));
@@ -165,6 +166,24 @@ namespace full_AI_tovch
             UnregisterHotKey(handle, exitHotkeyId);
         }
 
+        // 新增：注销唤醒热键
+        public static void UnregisterWakeUpHotkey()
+        {
+            UnregisterHotKey(handle, wakeUpHotkeyId);
+        }
 
-    } 
+        // 重新注册所有热键
+        public static void ReRegisterHotkeys()
+        {
+            if (handle == IntPtr.Zero) return;
+            UnregisterWakeUpHotkey();
+            UnregisterHideHotkey();
+            UnregisterToggleLabelsHotkey();
+            UnregisterExitHotkey();
+            RegisterWakeUpHotkey();
+            RegisterHideHotkey();
+            RegisterToggleLabelsHotkey();
+            RegisterExitHotkey();
+        }
+    }
 }
