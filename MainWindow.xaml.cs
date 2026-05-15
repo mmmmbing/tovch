@@ -221,6 +221,9 @@ namespace full_AI_tovch
 
                 // 注册唤出热键（始终有效）
                 MenuActivation.RegisterWakeUpHotkey();
+
+                //注册全局退出热键
+                MenuActivation.ExitRequested += OnExitRequested;
             };
 
 
@@ -264,6 +267,19 @@ namespace full_AI_tovch
                 MainCanvas.Children.Remove(centerButton);
             CreateCenterButton(currentCenterX, currentCenterY);
         }
+
+        private void OnExitRequested()
+        {
+            // 确保在 UI 线程上执行
+            Dispatcher.Invoke(() =>
+            {
+                // 清理资源
+                MenuActivation.Cleanup();
+                // 关闭窗口，结束应用程序
+                Application.Current.Shutdown();
+            });
+        }
+
 
         private void UpdateModifierStatusText(string text)
         {
@@ -368,6 +384,7 @@ namespace full_AI_tovch
             {
                 //this.Background = new SolidColorBrush(System.Windows.Media.Color.FromArgb(80, 255, 0, 0));
                 MenuActivation.RegisterToggleLabelsHotkey();
+                MenuActivation.RegisterExitHotkey();
                 Visibility = Visibility.Visible;
                 
                 //Topmost = true;
@@ -393,6 +410,9 @@ namespace full_AI_tovch
 
             //注销切换热键
             MenuActivation.UnregisterToggleLabelsHotkey();
+
+            //注销退出热键
+            MenuActivation.UnregisterExitHotkey();
 
             // 注销隐藏热键
             MenuActivation.UnregisterHideHotkey();

@@ -56,6 +56,7 @@ InteractionConfig.cs 可以配置快捷键内容
 | CTRL + SHIFT + F12 |   唤醒操作菜单   |
 |      CTRL + T      | 改变节点标签内容 |
 |        ESC         |   隐藏操作菜单   |
+|     CERL + ESC     |   释放软件内存   |
 
 ## 三、项目操作指南
 
@@ -81,7 +82,7 @@ InteractionConfig.cs 可以配置快捷键内容
 ![PixPin_2026-05-14_15-27-04](./README.assets/PixPin_2026-05-14_15-27-04.gif)
 
 
-切换到sym可以对修饰按键以及快捷键的集成使用：
+切换到sym可以对修饰按键以及快捷键的集成使用，项目默认给CTRL 以及WIN设置了特殊的子菜单，可以通过右键CTRL | WIN进入【也可以拖拽节点时右键进入】，方便快捷组合快捷键：
 
 ![PixPin_2026-05-14_18-21-50](./README.assets/PixPin_2026-05-14_18-21-50.gif)
 

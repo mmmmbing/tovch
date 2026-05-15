@@ -81,6 +81,7 @@ namespace full_AI_tovch
         {
             UnregisterHotKey(handle, wakeUpHotkeyId);
             UnregisterHotKey(handle, hideHotkeyId);
+            UnregisterHotKey(handle, exitHotkeyId);
             if (hwndSource != null)
                 hwndSource.RemoveHook(WndProc);
         }
@@ -117,6 +118,11 @@ namespace full_AI_tovch
                     ToggleLabelsRequested?.Invoke();
                     handled = true;
                 }
+                else if (hotkeyId == exitHotkeyId)
+                {
+                    ExitRequested?.Invoke();
+                    handled = true;
+                }
             }
             return IntPtr.Zero;
         }
@@ -140,5 +146,25 @@ namespace full_AI_tovch
         {
             UnregisterHotKey(handle, toggleLabelsHotkeyId);
         }
+
+        private static int exitHotkeyId = 9004;  // 新 ID
+
+        public static event Action ExitRequested;  // 退出事件
+
+        public static void RegisterExitHotkey()
+        {
+            if (handle == IntPtr.Zero) return;
+            UnregisterHotKey(handle, exitHotkeyId);
+            RegisterHotKey(handle, exitHotkeyId,
+                ModifierKeysConverter.ToWin32(InteractionConfig.ExitModifiers),
+                (uint)KeyInterop.VirtualKeyFromKey(InteractionConfig.ExitKey));
+        }
+
+        public static void UnregisterExitHotkey()
+        {
+            UnregisterHotKey(handle, exitHotkeyId);
+        }
+
+
     } 
 }
