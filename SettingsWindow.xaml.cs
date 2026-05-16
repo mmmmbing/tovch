@@ -28,6 +28,7 @@ namespace full_AI_tovch
         public SettingsWindow(UserSettings settings)
         {
             InitializeComponent();
+            btnSave.Click += BtnSave_Click;
             _settings = settings;
             LoadSettings();
         }
@@ -49,6 +50,17 @@ namespace full_AI_tovch
         private void BtnClose_Click(object sender, RoutedEventArgs e)
         {
             this.Close();
+        }
+
+
+        public static string GetConfigPath()
+        {
+            string appDataPath = System.IO.Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "full_AI_tovch");
+            if (!System.IO.Directory.Exists(appDataPath))
+                System.IO.Directory.CreateDirectory(appDataPath);
+            return System.IO.Path.Combine(appDataPath, "UserSettings.xml");
         }
 
         private void LoadSettings()
@@ -119,11 +131,13 @@ namespace full_AI_tovch
                 _settings.LongPressThreshold = threshold;
 
             SetAutoStart(_settings.AutoStart);
-            string configPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "UserSettings.xml");
+
+            // 使用 MainWindow 的静态方法获取路径
+            string configPath = MainWindow.GetConfigPath();
             _settings.Save(configPath);
 
             DialogResult = true;
-            Close();
+            //Close();
         }
 
         private void BtnCancel_Click(object sender, RoutedEventArgs e)

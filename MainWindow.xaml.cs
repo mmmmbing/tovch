@@ -426,19 +426,33 @@ namespace full_AI_tovch
         //    base.OnClosed(e);
         //}s
 
-        //    protected override void OnSourceInitialized(EventArgs e)
-        //    {
-        //        base.OnSourceInitialized(e);
-        //        var helper = new WindowInteropHelper(this);
-        //        IntPtr handle = helper.Handle;
-        //        MenuActivation.Initialize(handle);
-        //        MenuActivation.ShowRequested += ShowMenu;
-        //        MenuActivation.HideRequested += HideMenu;
-        //        MenuActivation.RegisterWakeUpHotkey();
-        //        MenuActivation.RegisterExitHotkey();   // 退出热键始终有效
-        //    }
+        public static string GetConfigPath()
+        {
+            string appDataPath = System.IO.Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "full_AI_tovch");
+            if (!System.IO.Directory.Exists(appDataPath))
+                System.IO.Directory.CreateDirectory(appDataPath);
+            return System.IO.Path.Combine(appDataPath, "UserSettings.xml");
+        }
 
-            public void RefreshCenterButton()
+        protected override void OnSourceInitialized(EventArgs e)
+        {
+            base.OnSourceInitialized(e);
+
+            // 加载用户配置（必须在热键注册之前）
+            LoadUserSettingsOnStartup();
+
+            var helper = new WindowInteropHelper(this);
+            IntPtr handle = helper.Handle;
+            MenuActivation.Initialize(handle);
+            MenuActivation.ShowRequested += ShowMenu;
+            MenuActivation.HideRequested += HideMenu;
+            MenuActivation.RegisterWakeUpHotkey();
+            MenuActivation.RegisterExitHotkey();
+        }
+
+        public void RefreshCenterButton()
             {
                 if (centerButton != null && MainCanvas.Children.Contains(centerButton))
                     MainCanvas.Children.Remove(centerButton);
@@ -457,42 +471,41 @@ namespace full_AI_tovch
                 });
             }
 
-            private UserSettings LoadCurrentSettings()
+        private UserSettings LoadCurrentSettings()
+        {
+            string configPath = GetConfigPath();   // 使用新路径
+            if (System.IO.File.Exists(configPath))
+                return UserSettings.Load(configPath);
+
+            return new UserSettings
             {
-                // 优先从文件加载，否则从当前 InteractionConfig 读取
-                string configPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "UserSettings.xml");
-                if (System.IO.File.Exists(configPath))
-                    return UserSettings.Load(configPath);
+                WakeUp = new HotkeyConfig { Key = InteractionConfig.WakeUpKey, Modifiers = InteractionConfig.WakeUpModifiers },
+                Hide = new HotkeyConfig { Key = InteractionConfig.HideKey, Modifiers = InteractionConfig.HideModifiers },
+                ToggleLabels = new HotkeyConfig { Key = InteractionConfig.ToggleLabelsKey, Modifiers = InteractionConfig.ToggleLabelsModifiers },
+                Exit = new HotkeyConfig { Key = InteractionConfig.ExitKey, Modifiers = InteractionConfig.ExitModifiers },
+                LongPressThreshold = InteractionConfig.LongPressThreshold,
+                DeleteRepeatInterval = InteractionConfig.DeleteRepeatInterval,
+                DeleteKey = InteractionConfig.DeleteKey,
+                ShowCenterNode = CenterNodeConfig.ShowCenterNode,
+                CenterButtonSize = CenterNodeConfig.ButtonSize,
+                CenterButtonText = CenterNodeConfig.Text,
+                CenterLongPressThresholdMs = CenterNodeConfig.LongPressThresholdMs,
+                CenterDeleteRepeatIntervalMs = CenterNodeConfig.DeleteRepeatIntervalMs,
+                AutoStart = false
+            };
+        }
 
-                return new UserSettings
-                {
-                    WakeUp = new HotkeyConfig { Key = InteractionConfig.WakeUpKey, Modifiers = InteractionConfig.WakeUpModifiers },
-                    Hide = new HotkeyConfig { Key = InteractionConfig.HideKey, Modifiers = InteractionConfig.HideModifiers },
-                    ToggleLabels = new HotkeyConfig { Key = InteractionConfig.ToggleLabelsKey, Modifiers = InteractionConfig.ToggleLabelsModifiers },
-                    Exit = new HotkeyConfig { Key = InteractionConfig.ExitKey, Modifiers = InteractionConfig.ExitModifiers },
-                    LongPressThreshold = InteractionConfig.LongPressThreshold,
-                    DeleteRepeatInterval = InteractionConfig.DeleteRepeatInterval,
-                    DeleteKey = InteractionConfig.DeleteKey,
-                    ShowCenterNode = CenterNodeConfig.ShowCenterNode,
-                    CenterButtonSize = CenterNodeConfig.ButtonSize,
-                    CenterButtonText = CenterNodeConfig.Text,
-                    CenterLongPressThresholdMs = CenterNodeConfig.LongPressThresholdMs,
-                    CenterDeleteRepeatIntervalMs = CenterNodeConfig.DeleteRepeatIntervalMs,
-                    AutoStart = false
-                };
-            }
-
-            private void LoadUserSettingsOnStartup()
+        private void LoadUserSettingsOnStartup()
+        {
+            string configPath = GetConfigPath();   // 使用新路径
+            if (System.IO.File.Exists(configPath))
             {
-                string configPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "UserSettings.xml");
-                if (System.IO.File.Exists(configPath))
-                {
-                    var settings = UserSettings.Load(configPath);
-                    ApplySettings(settings);
-                }
+                var settings = UserSettings.Load(configPath);
+                ApplySettings(settings);
             }
+        }
 
-            private void ApplySettings(UserSettings settings)
+        private void ApplySettings(UserSettings settings)
             {
                 InteractionConfig.WakeUpKey = settings.WakeUp.Key;
                 InteractionConfig.WakeUpModifiers = settings.WakeUp.Modifiers;
@@ -514,7 +527,7 @@ namespace full_AI_tovch
             }
 
 
-            private void UpdateModifierStatusText(string text)
+        private void UpdateModifierStatusText(string text)
             {
                 if (statusIndicator == null)
                 {

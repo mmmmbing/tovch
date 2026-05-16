@@ -166,5 +166,10 @@
   <ItemGroup>
     <Resource Include="tmw99-31tfk-001.ico" />
   </ItemGroup>
+	<ItemGroup>
+		<Content Include="Resources\**\*">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</Content>
+	</ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
