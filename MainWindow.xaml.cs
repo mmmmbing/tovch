@@ -77,10 +77,10 @@ namespace full_AI_tovch
 
 
             //是否是修饰节点上右键
-            private bool isModifierRightClick = false;
+            //private bool isModifierRightClick = false;
 
             // 右键长按相关
-            private bool isRightButtonPressed = false;
+            //private bool isRightButtonPressed = false;
             private System.Windows.Threading.DispatcherTimer longPressTimer;
             private System.Windows.Threading.DispatcherTimer deleteRepeatTimer;
             private DateTime rightButtonDownTime;
@@ -524,7 +524,18 @@ namespace full_AI_tovch
                 CenterNodeConfig.Text = settings.CenterButtonText;
                 CenterNodeConfig.LongPressThresholdMs = settings.CenterLongPressThresholdMs;
                 CenterNodeConfig.DeleteRepeatIntervalMs = settings.CenterDeleteRepeatIntervalMs;
+
+
+                var treeConfig = UserSettings.ToNodeTreeConfig(settings.NodeTreeConfig);
+                rootNodes = NodeTree.BuildTree(treeConfig);
+                // 重新应用 LabelConfig 等（根据需要）
+                LabelConfig.Apply(rootNodes);
+                // 如果当前菜单是打开的，需要刷新界面
+                if (this.Visibility == Visibility.Visible)
+                {
+                    SnapToMouse(); // 重新定位并刷新
             }
+        }
 
 
         private void UpdateModifierStatusText(string text)

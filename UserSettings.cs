@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Windows.Input;
 using System.Xml.Serialization;
 
@@ -54,6 +56,95 @@ namespace full_AI_tovch
                 return new UserSettings();
             }
         }
+
+        public NodeTreeConfigData NodeTreeConfig { get; set; } = GetDefaultNodeTreeConfig();
+
+        public static NodeTreeConfigData GetDefaultNodeTreeConfig()
+        {
+            var defaultConfig = new NodeTreeConfigData
+            {
+                TrackRadius = 100,
+                ButtonSize = 50,
+                VertexCount = 5,
+                Labels = new List<string> {  "num", "chara", "spcl", "fun", "Sym" }, // 注意：这里 labels 用于根节点，子节点名称另行设置
+                ExpandableConfigs = new Dictionary<int, NodeTreeConfigData>()
+            };
+
+            // 索引0: num 节点（数字 0-9）
+            defaultConfig.ExpandableConfigs[0] = new NodeTreeConfigData
+            {
+                TrackRadius = 100,
+                ButtonSize = 50,
+                VertexCount = 10,
+                Labels = new List<string> { "0", "1", "2", "3", "4", "5", "6", "7", "8", "9" }
+            };
+
+            // 索引1: chara 节点（字母 a-z）
+            defaultConfig.ExpandableConfigs[1] = new NodeTreeConfigData
+            {
+                TrackRadius = 210,
+                ButtonSize = 40,
+                VertexCount = 26,
+                Labels = new List<string> { "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z" }
+            };
+
+            // 索引2: spcl 节点（符号）
+            defaultConfig.ExpandableConfigs[2] = new NodeTreeConfigData
+            {
+                TrackRadius = 100,
+                ButtonSize = 50,
+                VertexCount = 10,
+                Labels = new List<string> { "!", "@", "#", "$", "%", "^", "&", "*", "(", ")" }
+            };
+
+            // 索引3: fun 节点（功能键）
+            defaultConfig.ExpandableConfigs[3] = new NodeTreeConfigData
+            {
+                TrackRadius = 100,
+                ButtonSize = 50,
+                VertexCount = 11,
+                Labels = new List<string> { "Tab", "Enter", "Space", "Delete", "Insert", "Home", "End", "up", "down", "left", "right" }
+            };
+
+            // 索引4: Sym 节点（修饰键）
+            defaultConfig.ExpandableConfigs[4] = new NodeTreeConfigData
+            {
+                TrackRadius = 100,
+                ButtonSize = 50,
+                VertexCount = 5,
+                Labels = new List<string> { "Win", "Shift", "Ctrl", "CapsLk", "Alt" },
+                ExpandableConfigs = new Dictionary<int, NodeTreeConfigData>()
+            };
+            defaultConfig.ExpandableConfigs[4].ExpandableConfigs[0] = new NodeTreeConfigData
+            {
+                TrackRadius = 100,
+                ButtonSize = 50,
+                VertexCount = 2,
+                Labels = new List<string> { "LeftWin", "RightWin" }
+            };
+            return defaultConfig;
+        }
+
+        public static NodeTreeConfig ToNodeTreeConfig(NodeTreeConfigData data)
+        {
+            var config = new NodeTreeConfig
+            {
+                TrackRadius = data.TrackRadius,
+                ButtonSize = data.ButtonSize,
+                VertexCount = data.VertexCount,
+                Labels = data.Labels ?? new List<string>(),
+                ExpandableConfigs = new Dictionary<int, NodeTreeConfig>()
+            };
+            if (data.ExpandableConfigs != null)
+            {
+                foreach (var kv in data.ExpandableConfigs)
+                {
+                    config.ExpandableConfigs[kv.Key] = ToNodeTreeConfig(kv.Value);
+                }
+            }
+            return config;
+        }
+
     }
 
     [Serializable]
@@ -71,5 +162,16 @@ namespace full_AI_tovch
             if (Modifiers.HasFlag(ModifierKeys.Windows)) mod += "Win+";
             return mod + Key.ToString();
         }
+    }
+
+    [Serializable]
+    public class NodeTreeConfigData
+    {
+        public double TrackRadius { get; set; }
+        public double ButtonSize { get; set; }
+        public int VertexCount { get; set; }
+        public List<string> Labels { get; set; }
+        public Dictionary<int, NodeTreeConfigData> ExpandableConfigs { get; set; }
+        public ExpandStyle ExpandStyle { get; set; } = ExpandStyle.Normal;   // 新增：扩展方式
     }
 }
